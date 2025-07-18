@@ -1,0 +1,56 @@
+[
+  {
+    "timestamp": "2025-07-18T12:56:21.239079",
+    "username": "admin",
+    "ip": "192.168.1.114",
+    "geo_info": {
+      "coordinates": "0,0",
+      "latitude": 0,
+      "longitude": 0,
+      "city": "Local",
+      "region": "Internal",
+      "country": "Local Network",
+      "isp": "Local",
+      "timezone": "UTC",
+      "proxy": false,
+      "map_url": ""
+    },
+    "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36 Edg/138.0.0.0"
+  },
+  {
+    "timestamp": "2025-07-18T13:06:50.511911",
+    "username": "admin",
+    "ip": "192.168.1.114",
+    "geo_info": {
+      "coordinates": "0,0",
+      "latitude": 0,
+      "longitude": 0,
+      "city": "Local Network",
+      "region": "Internal",
+      "country": "Local Network",
+      "isp": "Local",
+      "timezone": "UTC",
+      "proxy": false,
+      "map_url": ""
+    },
+    "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36 Edg/138.0.0.0"
+  },
+  {
+    "timestamp": "2025-07-18T13:11:25.880411",
+    "username": "admin",
+    "ip": "192.168.1.114",
+    "geo_info": {
+      "coordinates": "0,0",
+      "latitude": 0,
+      "longitude": 0,
+      "city": "Local Network",
+      "region": "Internal",
+      "country": "Local Network",
+      "isp": "Local",
+      "timezone": "UTC",
+      "proxy": false,
+      "map_url": ""
+    },
+    "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36 Edg/138.0.0.0"
+  }
+]

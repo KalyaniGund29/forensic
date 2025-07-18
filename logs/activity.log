@@ -1,0 +1,759 @@
+2025-07-16T16:18:15.308311 | IP: 127.0.0.1 | Location: 0,0 (Unknown, Unknown) | UA: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36 | Path: / | Event: Visited Home
+2025-07-16T16:18:23.848022 | IP: 127.0.0.1 | Location: 0,0 (Unknown, Unknown) | UA: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36 | Path: /login | Event: Visited Login Page
+2025-07-16T16:18:50.634765 | IP: 127.0.0.1 | Location: 0,0 (Unknown, Unknown) | UA: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36 | Path: /login | Event: Successful Login
+2025-07-16T16:18:50.960300 | IP: 127.0.0.1 | Location: 0,0 (Unknown, Unknown) | UA: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36 | Path: /admin | Event: Accessed Admin Panel
+2025-07-17T14:01:34.473592 | IP: 127.0.0.1 | Location: 0,0 (Unknown, Unknown) | UA: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36 | Path: / | Event: Visited Home
+2025-07-17T14:01:36.462206 | IP: 127.0.0.1 | Location: 0,0 (Unknown, Unknown) | UA: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36 | Path: /login | Event: Visited Login Page
+2025-07-17T14:01:43.744286 | IP: 127.0.0.1 | Location: 0,0 (Unknown, Unknown) | UA: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36 | Path: /login | Event: Successful Login
+2025-07-17T14:01:43.804888 | IP: 127.0.0.1 | Location: 0,0 (Unknown, Unknown) | UA: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36 | Path: /admin | Event: Accessed Admin Panel
+EventID: 29ab3c4a-ef20-4163-ab29-a8bcd6b691b0
+Timestamp: 2025-07-17T14:14:36.821563
+IP: 127.0.0.1
+Hostname: Dhanush
+Location: 0,0 (Unknown, Unknown)
+Method: GET
+Path: /
+User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36
+Event: Visited Home Page
+DataHash: 44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a
+IntegrityHash: 75c51935f91bb756c6c63e098cda09809b04a9e2a90fd9a44bad1d5c722a3f3b
+------------------------------------------------------------
+EventID: fed8617c-e977-446a-8acb-74742330953c
+Timestamp: 2025-07-17T14:14:40.805360
+IP: 127.0.0.1
+Hostname: Dhanush
+Location: 0,0 (Unknown, Unknown)
+Method: GET
+Path: /login
+User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36
+Event: Visited Login Page
+DataHash: 44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a
+IntegrityHash: 16a56528be6f2821525575971ea91a07088fb58db1307cab0f68b9b8908682cb
+------------------------------------------------------------
+EventID: 1f79e055-d866-4456-b054-0e6b20c89fcd
+Timestamp: 2025-07-17T14:14:47.934595
+IP: 127.0.0.1
+Hostname: Dhanush
+Location: 0,0 (Unknown, Unknown)
+Method: POST
+Path: /login
+User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36
+Event: Successful Login
+DataHash: 7b61917b5583df5095772713aab9a0a8f21d702de3835ad47422f3da08e1d4ca
+IntegrityHash: 110d7f44f9c47138048c4961586f38db71d02940993a22a374308c3a09be684a
+------------------------------------------------------------
+EventID: 35eca028-fe15-4b30-980f-7b05fba4a991
+Timestamp: 2025-07-17T14:14:48.005272
+IP: 127.0.0.1
+Hostname: Dhanush
+Location: 0,0 (Unknown, Unknown)
+Method: GET
+Path: /admin
+User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36
+Event: Accessed Admin Panel
+DataHash: 44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a
+IntegrityHash: 80dfbfb52f5c7b3d5b80633bcba3bd3129c02061bbf06e969bc0b6b7212c823d
+------------------------------------------------------------
+EventID: a1618389-7be9-461d-beba-6d8fe0d5ec2f
+Timestamp: 2025-07-17T14:18:18.031983
+IP: 127.0.0.1
+Hostname: Dhanush
+Location: 0,0 (Unknown, Unknown)
+Method: GET
+Path: /
+User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36
+Event: Visited Home Page
+DataHash: 44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a
+IntegrityHash: 40af19f5eae36c510ee8b2b2b2c56844cff0eaa0e3435a9ab91834c6811b82ba
+------------------------------------------------------------
+EventID: 5ae937ab-5223-409c-b8cb-74921a728eb2
+Timestamp: 2025-07-17T14:18:19.776878
+IP: 127.0.0.1
+Hostname: Dhanush
+Location: 0,0 (Unknown, Unknown)
+Method: GET
+Path: /login
+User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36
+Event: Visited Login Page
+DataHash: 44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a
+IntegrityHash: 7d9c15f4c00308f108e5f244e675a8f4c83383f4837ba37a057c0e45ec295cbc
+------------------------------------------------------------
+EventID: e18b99c1-0b04-4bb6-aa92-0d78614232a4
+Timestamp: 2025-07-17T14:18:26.810273
+IP: 127.0.0.1
+Hostname: Dhanush
+Location: 0,0 (Unknown, Unknown)
+Method: POST
+Path: /login
+User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36
+Event: Successful Login
+DataHash: 7b61917b5583df5095772713aab9a0a8f21d702de3835ad47422f3da08e1d4ca
+IntegrityHash: 0f59e0ee63dc34baa1bd4f0a90da4ed5b2b0a1180a6ba788c32957a1e5cb7c2e
+------------------------------------------------------------
+EventID: fef53228-ea89-4b4a-a1d6-e00eafc7f7f1
+Timestamp: 2025-07-17T14:18:26.872188
+IP: 127.0.0.1
+Hostname: Dhanush
+Location: 0,0 (Unknown, Unknown)
+Method: GET
+Path: /admin
+User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36
+Event: Accessed Admin Panel
+DataHash: 44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a
+IntegrityHash: 0203fde730d1947592dec2ff24288420199b4eacf202ae1702c4e3b839b82cd0
+------------------------------------------------------------
+EventID: 1d650df9-2c94-4506-a148-b116d1be4849
+Timestamp: 2025-07-18T10:46:14.174110
+IP: 192.168.1.114
+Hostname: Kalyani_Gund
+Location: 0,0 (Unknown, Unknown)
+Method: GET
+Path: /
+User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36 Edg/138.0.0.0
+Event: Visited Home Page
+DataHash: 44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a
+IntegrityHash: 98f2b1c0c0685138b86c68e0d19d188b3777ba6efce612a3b48e476eb68c2f01
+------------------------------------------------------------
+EventID: 3fc02cc4-c03c-4487-b996-626a3a99927e
+Timestamp: 2025-07-18T10:46:21.145100
+IP: 192.168.1.114
+Hostname: Kalyani_Gund
+Location: 0,0 (Unknown, Unknown)
+Method: GET
+Path: /login
+User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36 Edg/138.0.0.0
+Event: Visited Login Page
+DataHash: 44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a
+IntegrityHash: 802132092646288edfa92ccf7a4962015f5c57941ccf00b6ae2a40e6ebae3b07
+------------------------------------------------------------
+EventID: 46023ec3-6e87-4407-b325-b1ed0ecc0f11
+Timestamp: 2025-07-18T10:46:30.570036
+IP: 192.168.1.114
+Hostname: Kalyani_Gund
+Location: 0,0 (Unknown, Unknown)
+Method: POST
+Path: /login
+User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36 Edg/138.0.0.0
+Event: Successful Login
+DataHash: c1078c0bc69280cdacab8fb2034daa9585742d4a14f5225c5a5421906727f4db
+IntegrityHash: 49657323ed73f13a7da44d07d2eb6ac9dcafc4256c5519906ec8e9c5e80656a8
+------------------------------------------------------------
+EventID: 5678f916-4ff6-4b3e-87a3-bd76ce87bb52
+Timestamp: 2025-07-18T10:46:30.718263
+IP: 192.168.1.114
+Hostname: Kalyani_Gund
+Location: 0,0 (Unknown, Unknown)
+Method: GET
+Path: /admin
+User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36 Edg/138.0.0.0
+Event: Accessed Admin Panel
+DataHash: 44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a
+IntegrityHash: 8a3b6cff1dcaee2d536c7e2c57d43cee6fdeb965be4aa31f5fade8d8e234fd4f
+------------------------------------------------------------
+EventID: 14c59fa3-87c3-4297-abe1-b46d4f183762
+Timestamp: 2025-07-18T10:58:04.659718
+IP: 192.168.1.114
+Hostname: Kalyani_Gund
+Location: 0,0 (Unknown, Unknown)
+Method: GET
+Path: /admin
+User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36 Edg/138.0.0.0
+Event: Accessed Admin Panel
+DataHash: 44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a
+IntegrityHash: f85233ef37261655ac3048d98f5d082f4ab51d8f0d0a59914d373811794fc274
+------------------------------------------------------------
+EventID: bbdc18d5-df06-420e-bbbe-074ccab7222a
+Timestamp: 2025-07-18T11:09:55.355557
+Level: INFO
+IP: 192.168.1.114
+Hostname: Kalyani_Gund
+Location: 0,0 (Unknown, Unknown)
+VPN/Proxy: No
+Method: GET
+Path: /
+User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36 Edg/138.0.0.0
+Event: Visited Home Page
+DataHash: 983eb68915e65cd3abf9a5bb9d402c53ca629d89be75166cb429eebbe03fd8db
+IntegrityHash: 06c20187043a02ffeaa96ebbb688c88d8bb940fbcc05a246496d84910bb171a5
+------------------------------------------------------------
+EventID: 105efced-e616-4bb8-b058-4772172aacd5
+Timestamp: 2025-07-18T11:09:59.696882
+Level: INFO
+IP: 192.168.1.114
+Hostname: Kalyani_Gund
+Location: 0,0 (Unknown, Unknown)
+VPN/Proxy: No
+Method: GET
+Path: /login
+User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36 Edg/138.0.0.0
+Event: Visited Login Page
+DataHash: 9391c7f3ffae19714c22a8b82f4a6b545149811f306f795607b1a2e1ba16e998
+IntegrityHash: 386e2fbd6f00f34ca4b4eb0d15d9cf556382f228071f0f74e576f0460ae7a9b7
+------------------------------------------------------------
+EventID: 83af9180-c141-48a7-ba65-50ed5836c60b
+Timestamp: 2025-07-18T11:10:08.910971
+Level: WARNING
+IP: 192.168.1.114
+Hostname: Kalyani_Gund
+Location: 0,0 (Unknown, Unknown)
+VPN/Proxy: No
+Method: POST
+Path: /login
+User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36 Edg/138.0.0.0
+Event: CSRF token mismatch
+DataHash: 4313fe1cca3c42915afe8399a90725d6081d8782089afee7a910c28fa5fe8b5e
+IntegrityHash: 11f9f5d23deccf7e96effb1e2731ed8fff3d4143d272bcf74400cf9393707364
+------------------------------------------------------------
+EventID: 61b99ff8-cbfa-42b7-afd6-264eec5b42b0
+Timestamp: 2025-07-18T11:20:15.373757
+Level: INFO
+IP: 192.168.1.114
+Hostname: Kalyani_Gund
+Location: 0,0 (Unknown, Unknown)
+VPN/Proxy: No
+Method: GET
+Path: /
+User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36 Edg/138.0.0.0
+Event: Visited Home Page
+DataHash: 987b72b219dfad677dc00886139d11b21f0bd53736ca33214c7a97ac2b4f8800
+IntegrityHash: 79fcc8f5b81d30a170ccc4ff92e4fb7d2838304498eea019012848f2b3497dbc
+------------------------------------------------------------
+EventID: 54a60649-5c95-4f18-a5e0-63e677dfbaf4
+Timestamp: 2025-07-18T11:20:19.482275
+Level: INFO
+IP: 192.168.1.114
+Hostname: Kalyani_Gund
+Location: 0,0 (Unknown, Unknown)
+VPN/Proxy: No
+Method: GET
+Path: /login
+User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36 Edg/138.0.0.0
+Event: Visited Login Page
+DataHash: 0d87c5b36a6eb9acbccbbbf15a1ecb5baa2ce143e28e8e40071360ac24e0dbf6
+IntegrityHash: 07a6f34e10b9f6b1fd62afcab0a8f1146d73fa46edfba94bfc7a596608e5577b
+------------------------------------------------------------
+EventID: c3aa22db-236f-422c-b8eb-be438b2ffd36
+Timestamp: 2025-07-18T11:20:26.609745
+Level: WARNING
+IP: 192.168.1.114
+Hostname: Kalyani_Gund
+Location: 0,0 (Unknown, Unknown)
+VPN/Proxy: No
+Method: POST
+Path: /login
+User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36 Edg/138.0.0.0
+Event: CSRF token mismatch
+DataHash: 539ddf8596639fdfb473ba93ab7cc00418138a801c142d178f82bbd390cd6e68
+IntegrityHash: cf7fd7853ccb9153447427071d9fda885160b60966f96a42a802658ea40131b6
+------------------------------------------------------------
+EventID: e8f29f8e-2a5b-4018-85e6-8f7d96ae3223
+Timestamp: 2025-07-18T11:24:12.025333
+Level: WARNING
+IP: 192.168.1.114
+Hostname: Kalyani_Gund
+Location: 0,0 (Unknown, Unknown)
+VPN/Proxy: No
+Method: POST
+Path: /login
+User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36 Edg/138.0.0.0
+Event: CSRF token mismatch
+DataHash: 29885a91aabc79edf5a2879d591e5f0cf08fdff4a34c52fc6b74fad04ab37fda
+IntegrityHash: d26a6381e53d494a1b309af9f78684944b967266f585a49259dc35243242f67e
+------------------------------------------------------------
+EventID: 0b6306cd-78b2-4c74-b175-7340f4211b0a
+Timestamp: 2025-07-18T11:47:50.588971
+IP: 192.168.1.114
+Method: GET
+Path: /
+User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36 Edg/138.0.0.0
+Event: Visited Home Page
+------------------------------------------------------------
+EventID: 69e8267a-4850-42b9-9ea5-691e064c6ab6
+Timestamp: 2025-07-18T11:47:59.221262
+IP: 192.168.1.114
+Method: GET
+Path: /login
+User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36 Edg/138.0.0.0
+Event: Visited Login Page
+------------------------------------------------------------
+EventID: c89fbff2-a83c-4acf-bcf0-cc82964a1c6d
+Timestamp: 2025-07-18T11:48:07.987419
+IP: 192.168.1.114
+Method: POST
+Path: /login
+User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36 Edg/138.0.0.0
+Event: Successful Login
+------------------------------------------------------------
+EventID: f36238aa-b4ed-4385-a6fb-9920ee21dd57
+Timestamp: 2025-07-18T11:48:07.997711
+IP: 192.168.1.114
+Method: GET
+Path: /admin
+User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36 Edg/138.0.0.0
+Event: Accessed Admin Panel
+------------------------------------------------------------
+EventID: a12d42d1-131c-4dc0-98d9-bba8e28ce2df
+Timestamp: 2025-07-18T11:59:29.233005
+IP: 192.168.1.114
+Location: 0,0 (Unknown, Unknown)
+Method: GET
+Path: /
+User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36 Edg/138.0.0.0
+Event: Visited Home Page
+------------------------------------------------------------
+EventID: 3912f020-2c9a-4e18-87b7-29b2619ebe01
+Timestamp: 2025-07-18T11:59:33.015661
+IP: 192.168.1.114
+Location: 0,0 (Unknown, Unknown)
+Method: GET
+Path: /login
+User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36 Edg/138.0.0.0
+Event: Visited Login Page
+------------------------------------------------------------
+EventID: 8ea8245c-2852-4db7-bfa1-afa58de2649b
+Timestamp: 2025-07-18T11:59:41.355712
+IP: 192.168.1.114
+Location: 0,0 (Unknown, Unknown)
+Method: POST
+Path: /login
+User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36 Edg/138.0.0.0
+Event: Successful Login
+------------------------------------------------------------
+EventID: 8c0037f3-6a3d-406f-8e48-e421a50c9140
+Timestamp: 2025-07-18T11:59:41.749241
+IP: 192.168.1.114
+Location: 0,0 (Unknown, Unknown)
+Method: GET
+Path: /admin
+User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36 Edg/138.0.0.0
+Event: Accessed Admin Panel
+------------------------------------------------------------
+EventID: 395b4f66-5e43-4061-b491-d697d39539be
+Timestamp: 2025-07-18T12:13:37.626566
+IP: 192.168.1.114
+Hostname: Kalyani_Gund
+Location: 0,0 (Unknown, Unknown)
+Method: GET
+Path: /
+User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36 Edg/138.0.0.0
+Event: Visited Home Page
+DataHash: 44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a
+IntegrityHash: 5c09722c7a01153c72752ef3f96847f1536fc788c1c3aa5f5ab37a4049464230
+------------------------------------------------------------
+EventID: 08906bb1-bda8-4170-a4a9-4e732de68781
+Timestamp: 2025-07-18T12:13:39.551008
+IP: 192.168.1.114
+Hostname: Kalyani_Gund
+Location: 0,0 (Unknown, Unknown)
+Method: GET
+Path: /login
+User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36 Edg/138.0.0.0
+Event: Visited Login Page
+DataHash: 44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a
+IntegrityHash: dec768c82e4b597447845412fd6836167ba4c53edc470b2417134f98c8dfee86
+------------------------------------------------------------
+EventID: 2c1fa4ac-58ef-443e-857a-3c9497142735
+Timestamp: 2025-07-18T12:13:49.706744
+IP: 192.168.1.114
+Hostname: Kalyani_Gund
+Location: 0,0 (Unknown, Unknown)
+Method: POST
+Path: /login
+User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36 Edg/138.0.0.0
+Event: Successful Login
+DataHash: c1078c0bc69280cdacab8fb2034daa9585742d4a14f5225c5a5421906727f4db
+IntegrityHash: 9e20fb94500e31594aa83640422e73d00db02f3267c7505013733e35944c786b
+------------------------------------------------------------
+EventID: 654bf34d-6c59-4040-ba26-720947814afc
+Timestamp: 2025-07-18T12:17:55.075705
+IP: 192.168.1.114
+Hostname: Kalyani_Gund
+Location: 0,0 (Unknown, Unknown)
+Method: GET
+Path: /
+User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36 Edg/138.0.0.0
+Event: Visited Home Page
+DataHash: 44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a
+IntegrityHash: 56d30f37c808106b6d52aee85bb7fa14cfda40f7a14761d3ff367cb46dcb3af2
+------------------------------------------------------------
+EventID: ae4c7ccd-a790-4ecd-ac35-9210c51148a6
+Timestamp: 2025-07-18T12:17:58.533370
+IP: 192.168.1.114
+Hostname: Kalyani_Gund
+Location: 0,0 (Unknown, Unknown)
+Method: GET
+Path: /login
+User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36 Edg/138.0.0.0
+Event: Visited Login Page
+DataHash: 44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a
+IntegrityHash: 9863bd2cfa78d21930b4ea670df585ff88c908e2e1e414a8c947bd75dbcc059d
+------------------------------------------------------------
+EventID: 09a5b43d-4b72-4ffc-add1-14f51f3d584b
+Timestamp: 2025-07-18T12:18:06.381316
+IP: 192.168.1.114
+Hostname: Kalyani_Gund
+Location: 0,0 (Unknown, Unknown)
+Method: POST
+Path: /login
+User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36 Edg/138.0.0.0
+Event: Successful Login
+DataHash: c1078c0bc69280cdacab8fb2034daa9585742d4a14f5225c5a5421906727f4db
+IntegrityHash: 3788fcd44d6f26915ed7939fe606c4fa42350dd8c3ce429a66e8023fcf6f3c99
+------------------------------------------------------------
+EventID: ace43fcb-833d-48c4-98fb-885fc1ca3e2a
+Timestamp: 2025-07-18T12:21:59.454570
+IP: 192.168.1.114
+Hostname: Kalyani_Gund
+Location: 0,0 (Unknown, Unknown)
+Method: GET
+Path: /
+User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36 Edg/138.0.0.0
+Event: Visited Home Page
+DataHash: 44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a
+IntegrityHash: 82a7c5764f6269bdf8eb4d4af81c01ae8c7bbfe4a7b95ba1436669f66b8d5090
+------------------------------------------------------------
+EventID: 9df5cf5d-40e9-40a6-868b-5fb7002140ed
+Timestamp: 2025-07-18T12:22:03.072890
+IP: 192.168.1.114
+Hostname: Kalyani_Gund
+Location: 0,0 (Unknown, Unknown)
+Method: GET
+Path: /login
+User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36 Edg/138.0.0.0
+Event: Visited Login Page
+DataHash: 44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a
+IntegrityHash: 14479f87e2e9a364b69547ee583349ae41c95da62d2d5e09552ac4b7d2b4b55b
+------------------------------------------------------------
+EventID: a22b5617-12c3-4362-9e2f-9a5a6a7daa0a
+Timestamp: 2025-07-18T12:22:10.828235
+IP: 192.168.1.114
+Hostname: Kalyani_Gund
+Location: 0,0 (Unknown, Unknown)
+Method: POST
+Path: /login
+User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36 Edg/138.0.0.0
+Event: Successful Login
+DataHash: c1078c0bc69280cdacab8fb2034daa9585742d4a14f5225c5a5421906727f4db
+IntegrityHash: fc67b88f8f6bbd49c32f96ff54b4a136526f119c30c88a17bae27e33644e866c
+------------------------------------------------------------
+EventID: 39424cab-f35b-4522-bd4c-490027b1da5e
+Timestamp: 2025-07-18T12:31:09.430014
+IP: 192.168.1.114
+Hostname: Kalyani_Gund
+Location: 0,0 (Unknown, Unknown)
+Method: GET
+Path: /
+User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36 Edg/138.0.0.0
+Event: Visited Home Page
+DataHash: 44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a
+IntegrityHash: 4719e5b1c631370d775fbb88170a14753433688ed5ae8155700f9a7fd7015b03
+------------------------------------------------------------
+EventID: ce5c0563-21d8-4aec-8b4e-61668d15abd6
+Timestamp: 2025-07-18T12:31:13.376562
+IP: 192.168.1.114
+Hostname: Kalyani_Gund
+Location: 0,0 (Unknown, Unknown)
+Method: GET
+Path: /login
+User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36 Edg/138.0.0.0
+Event: Visited Login Page
+DataHash: 44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a
+IntegrityHash: 953ff0c0c6f254f133a9dc99edc80669f89dbebccacec6e1cd03d127319b2580
+------------------------------------------------------------
+EventID: 40b1057b-7a7a-4623-81fc-b333c8f74eb3
+Timestamp: 2025-07-18T12:31:24.531670
+IP: 192.168.1.114
+Hostname: Kalyani_Gund
+Location: 0,0 (Unknown, Unknown)
+Method: POST
+Path: /login
+User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36 Edg/138.0.0.0
+Event: Successful Login
+DataHash: c1078c0bc69280cdacab8fb2034daa9585742d4a14f5225c5a5421906727f4db
+IntegrityHash: 16375d8f9ee7f473629eea16696682297e59d87a8da0abca31551546f366b19d
+------------------------------------------------------------
+EventID: 441f46b7-f0b7-409f-a7f8-46021c078760
+Timestamp: 2025-07-18T12:31:24.649870
+IP: 192.168.1.114
+Hostname: Kalyani_Gund
+Location: 0,0 (Unknown, Unknown)
+Method: GET
+Path: /admin
+User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36 Edg/138.0.0.0
+Event: Accessed Admin Panel
+DataHash: 44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a
+IntegrityHash: efdd5f9b9ae217cd6aa22c25eca23e926d776b2dbf4f56c54e3e21ee9b9f8981
+------------------------------------------------------------
+EventID: f25a4f8b-d3b9-48a0-8d48-8038e95026ab
+Timestamp: 2025-07-18T12:44:48.996273
+IP: 192.168.1.114
+Hostname: Kalyani_Gund
+ISP: Local Network
+Location: 0,0 (Local, Internal)
+Method: GET
+Path: /
+User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36 Edg/138.0.0.0
+Event: Visited Home Page
+DataHash: 44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a
+IntegrityHash: efad2a73d5b349883b50d1741e4d05aa363ef9521f21119884b58d037dcf946c
+------------------------------------------------------------
+EventID: cbb4b101-e0de-487b-869b-51b11c0707b5
+Timestamp: 2025-07-18T12:44:56.633574
+IP: 192.168.1.114
+Hostname: Kalyani_Gund
+ISP: Local Network
+Location: 0,0 (Local, Internal)
+Method: GET
+Path: /login
+User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36 Edg/138.0.0.0
+Event: Visited Login Page
+DataHash: 44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a
+IntegrityHash: eece0dcbfa82d514f84bb0634751ad691d39c2ca685930728669708f44b34457
+------------------------------------------------------------
+EventID: 25e2b9ff-d96b-4daf-b42e-63b42280d368
+Timestamp: 2025-07-18T12:45:03.475783
+IP: 192.168.1.114
+Hostname: Kalyani_Gund
+ISP: Local Network
+Location: 0,0 (Local, Internal)
+Method: POST
+Path: /login
+User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36 Edg/138.0.0.0
+Event: Successful Login
+DataHash: c1078c0bc69280cdacab8fb2034daa9585742d4a14f5225c5a5421906727f4db
+IntegrityHash: d9db0d97270e97725eeabb39d4da20c9cd7fdf65a8b54c6810ca547886399201
+------------------------------------------------------------
+EventID: 2cb46016-85ec-4bc9-9c40-140e695006cf
+Timestamp: 2025-07-18T12:45:03.485621
+IP: 192.168.1.114
+Hostname: Kalyani_Gund
+ISP: Local Network
+Location: 0,0 (Local, Internal)
+Method: GET
+Path: /admin
+User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36 Edg/138.0.0.0
+Event: Accessed Admin Panel
+DataHash: 44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a
+IntegrityHash: fb014d9b3c968d6a7b439401ce01d6f6a3cd2ff616e88e07d4e4e7e3ea8801c7
+------------------------------------------------------------
+EventID: 81ba52b0-eadf-4666-a7af-f929676a039b
+Timestamp: 2025-07-18T12:56:11.739353
+IP: 192.168.1.114
+Hostname: Kalyani_Gund
+ISP: Local
+Location: 0,0 (Local, Local Network)
+Latitude: 0
+Longitude: 0
+Timezone: UTC
+Proxy/VPN: No
+Method: GET
+Path: /
+User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36 Edg/138.0.0.0
+Event: Visited Home Page
+DataHash: 44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a
+IntegrityHash: 0ad3bbdce0c7d7b3faebcce6c0bc489364a48804266055bd8456b313c7174221
+------------------------------------------------------------
+EventID: 4d0f9b93-870f-4011-a70e-a68f85903efd
+Timestamp: 2025-07-18T12:56:14.277652
+IP: 192.168.1.114
+Hostname: Kalyani_Gund
+ISP: Local
+Location: 0,0 (Local, Local Network)
+Latitude: 0
+Longitude: 0
+Timezone: UTC
+Proxy/VPN: No
+Method: GET
+Path: /login
+User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36 Edg/138.0.0.0
+Event: Visited Login Page
+DataHash: 44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a
+IntegrityHash: 46d403f3102a1bd102e4c46a4e5914f8be2ec1343bae9593cac94715e04e0073
+------------------------------------------------------------
+EventID: cc1ff2ca-e3ab-4d67-a5ae-ad67267b95be
+Timestamp: 2025-07-18T12:56:21.236865
+IP: 192.168.1.114
+Hostname: Kalyani_Gund
+ISP: Local
+Location: 0,0 (Local, Local Network)
+Latitude: 0
+Longitude: 0
+Timezone: UTC
+Proxy/VPN: No
+Method: POST
+Path: /login
+User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36 Edg/138.0.0.0
+Event: Successful Login
+DataHash: c1078c0bc69280cdacab8fb2034daa9585742d4a14f5225c5a5421906727f4db
+IntegrityHash: d234a061cca268da14ee6dde9a3f68d9b4c651b9c670f232a53a8b0657cef26e
+------------------------------------------------------------
+EventID: 2f970e7e-360c-4aa2-a4fd-de2d062a31dc
+Timestamp: 2025-07-18T12:56:21.253346
+IP: 192.168.1.114
+Hostname: Kalyani_Gund
+ISP: Local
+Location: 0,0 (Local, Local Network)
+Latitude: 0
+Longitude: 0
+Timezone: UTC
+Proxy/VPN: No
+Method: GET
+Path: /admin
+User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36 Edg/138.0.0.0
+Event: Accessed Admin Panel
+DataHash: 44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a
+IntegrityHash: d315af47dc641f627fd44220d13d05f7569f24e50ebe291ba956cc2f22e6a747
+------------------------------------------------------------
+EventID: 53b66181-1131-4c9c-9e83-5d4e81619b73
+Timestamp: 2025-07-18T12:57:33.345997
+IP: 192.168.1.114
+Hostname: Kalyani_Gund
+ISP: Local
+Location: 0,0 (Local, Local Network)
+Latitude: 0
+Longitude: 0
+Timezone: UTC
+Proxy/VPN: No
+Method: GET
+Path: /admin
+User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36 Edg/138.0.0.0
+Event: Accessed Admin Panel
+DataHash: 44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a
+IntegrityHash: f61e53c18354876c6a0357073dbcc4b0c17f8c30f9266e4b0f124422871c4408
+------------------------------------------------------------
+EventID: c13c3a11-ba3d-453b-b198-85455bc69c2c
+Timestamp: 2025-07-18T13:06:36.753171
+IP: 192.168.1.114
+Hostname: Kalyani_Gund
+ISP: Local
+Location: 0,0 (Local Network, Local Network)
+Latitude: 0
+Longitude: 0
+Timezone: UTC
+Proxy/VPN: No
+Method: GET
+Path: /
+User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36 Edg/138.0.0.0
+Event: Visited Home Page
+DataHash: 44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a
+IntegrityHash: 66ca947a5650000ed900d2947cfcb0678bcbb2f23802202b1ab1fe69ffcada61
+------------------------------------------------------------
+EventID: 6f5be52c-bdfd-42e4-8548-ca5eaf0e0dcc
+Timestamp: 2025-07-18T13:06:41.501283
+IP: 192.168.1.114
+Hostname: Kalyani_Gund
+ISP: Local
+Location: 0,0 (Local Network, Local Network)
+Latitude: 0
+Longitude: 0
+Timezone: UTC
+Proxy/VPN: No
+Method: GET
+Path: /login
+User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36 Edg/138.0.0.0
+Event: Visited Login Page
+DataHash: 44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a
+IntegrityHash: ecc19ee581a9fe4b81f8a050e8971bef01a76ddd7b9e47e1a3794977ea27d588
+------------------------------------------------------------
+EventID: c0b6cbd0-c49d-487b-b8d8-5df4172d7bcb
+Timestamp: 2025-07-18T13:06:50.509909
+IP: 192.168.1.114
+Hostname: Kalyani_Gund
+ISP: Local
+Location: 0,0 (Local Network, Local Network)
+Latitude: 0
+Longitude: 0
+Timezone: UTC
+Proxy/VPN: No
+Method: POST
+Path: /login
+User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36 Edg/138.0.0.0
+Event: Successful Login
+DataHash: c1078c0bc69280cdacab8fb2034daa9585742d4a14f5225c5a5421906727f4db
+IntegrityHash: 97c860a22255388f85b22bb93576a88e4fee76a3beaa1b7d5c20632ce07c6ce7
+------------------------------------------------------------
+EventID: 2cd764ac-a762-4b08-b869-983067ed7fb0
+Timestamp: 2025-07-18T13:06:50.540760
+IP: 192.168.1.114
+Hostname: Kalyani_Gund
+ISP: Local
+Location: 0,0 (Local Network, Local Network)
+Latitude: 0
+Longitude: 0
+Timezone: UTC
+Proxy/VPN: No
+Method: GET
+Path: /admin
+User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36 Edg/138.0.0.0
+Event: Accessed Admin Panel
+DataHash: 44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a
+IntegrityHash: 02d9b8585546d090d0e47ff7052ae73bbd34e1b005a1e19c9a52de798149869e
+------------------------------------------------------------
+EventID: 3f681755-351b-46e3-8a69-c2bc043e47b3
+Timestamp: 2025-07-18T13:11:12.724981
+IP: 192.168.1.114
+Hostname: Kalyani_Gund
+ISP: Local
+Location: 0,0 (Local Network, Local Network)
+Latitude: 0
+Longitude: 0
+Timezone: UTC
+Proxy/VPN: No
+Method: GET
+Path: /
+User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36 Edg/138.0.0.0
+Event: Visited Home Page
+DataHash: 44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a
+IntegrityHash: 70a006c93cb3acf93bf2989cff97e8903d43f25b3360fa5ca61c33bbb7b81f2b
+------------------------------------------------------------
+EventID: 35f1ed98-f4a0-4304-99da-c407a9e90bc8
+Timestamp: 2025-07-18T13:11:18.356512
+IP: 192.168.1.114
+Hostname: Kalyani_Gund
+ISP: Local
+Location: 0,0 (Local Network, Local Network)
+Latitude: 0
+Longitude: 0
+Timezone: UTC
+Proxy/VPN: No
+Method: GET
+Path: /login
+User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36 Edg/138.0.0.0
+Event: Visited Login Page
+DataHash: 44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a
+IntegrityHash: 0978afc4d6f03883d55b2b79e7ea0c603eeed23ed93ed4a80e21fafead86f995
+------------------------------------------------------------
+EventID: 9e9b892e-0aee-4634-a2ef-c1260d0c0266
+Timestamp: 2025-07-18T13:11:25.877917
+IP: 192.168.1.114
+Hostname: Kalyani_Gund
+ISP: Local
+Location: 0,0 (Local Network, Local Network)
+Latitude: 0
+Longitude: 0
+Timezone: UTC
+Proxy/VPN: No
+Method: POST
+Path: /login
+User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36 Edg/138.0.0.0
+Event: Successful Login
+DataHash: c1078c0bc69280cdacab8fb2034daa9585742d4a14f5225c5a5421906727f4db
+IntegrityHash: 6e867639abd3ba99d410c16b927ad7856dfbed3a742a83413b3bae01f9d707bb
+------------------------------------------------------------
+EventID: d94a1721-eb3a-45e4-8fd6-99b98a192d46
+Timestamp: 2025-07-18T13:11:25.917629
+IP: 192.168.1.114
+Hostname: Kalyani_Gund
+ISP: Local
+Location: 0,0 (Local Network, Local Network)
+Latitude: 0
+Longitude: 0
+Timezone: UTC
+Proxy/VPN: No
+Method: GET
+Path: /admin
+User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36 Edg/138.0.0.0
+Event: Accessed Admin Panel
+DataHash: 44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a
+IntegrityHash: b9ce01e2a062d781abbb4eb9742c60e180522ea57aaf5b6fbcf227726eebe4bf
+------------------------------------------------------------
