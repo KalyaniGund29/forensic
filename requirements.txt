@@ -1,3 +1,16 @@
 Flask
-gunicorn==21.2.0
+Werkzeug
+cryptography
+pyotp
+requests
 geocoder
+python-whois
+dnspython
+matplotlib
+networkx
+pandas
+bleach
+Flask-Limiter
+Flask-Talisman
+itsdangerous
+gunicorn
